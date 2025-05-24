@@ -32,6 +32,12 @@ export default function RootLayout() {
         {/* Màn hình Login */}
         <Stack.Screen name="login" options={{ headerShown: false }} />
         
+        {/* Màn hình Quên mật khẩu */}
+        <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+
+        {/* Màn hình Đăng ký */}
+        <Stack.Screen name="register" options={{ headerShown: false }} />
+        
         {/* Giao diện chính */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 

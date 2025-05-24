@@ -1,25 +1,65 @@
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet, Image, Dimensions, Alert } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+
+const { width } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
     if (!username || !password) {
-      setError('Vui lòng nhập đầy đủ thông tin.');
+      Alert.alert(
+        "Thông báo",
+        "Vui lòng điền đầy đủ tên đăng nhập và mật khẩu để tiếp tục.",
+        [
+          { 
+            text: "Đồng ý",
+            style: "default"
+          }
+        ],
+        { cancelable: true }
+      );
       return;
     }
 
     setLoading(true);
     try {
       await login(username, password);
-    } catch (err) {
-      setError('Sai tên đăng nhập hoặc mật khẩu!');
+    } catch (error: any) {
+      // Xử lý và format thông báo lỗi
+      let errorMessage = 'Đăng nhập thất bại. Vui lòng thử lại sau.';
+      
+      if (error?.response?.data?.message) {
+        // Lấy thông báo lỗi từ response của server
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        // Lấy thông báo lỗi từ error object
+        errorMessage = error.message;
+      }
+
+      // Format thông báo lỗi
+      if (errorMessage.includes('.')) {
+        errorMessage = errorMessage.split('.')[0];
+      }
+      
+      Alert.alert(
+        "Đăng nhập thất bại",
+        errorMessage,
+        [
+          { 
+            text: "Thử lại",
+            style: "default"
+          }
+        ],
+        { cancelable: true }
+      );
     } finally {
       setLoading(false);
     }
@@ -27,37 +67,85 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Chào mừng bạn!</Text>
-      <Text style={styles.subtitle}>Đăng nhập để tiếp tục</Text>
+      <View style={styles.content}>
+        <View style={styles.logoContainer}>
+          <Image 
+            source={require('@/assets/images/partial-react-logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
 
-      <TextInput
-        placeholder="Tên đăng nhập"
-        value={username}
-        onChangeText={setUsername}
-        style={styles.input}
-        autoCapitalize="none"
-      />
-      <TextInput
-        placeholder="Mật khẩu"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        style={styles.input}
-      />
+        <View style={styles.formContainer}>
+          <Text style={styles.title}>Chào mừng trở lại!</Text>
+          <Text style={styles.subtitle}>Đăng nhập để tiếp tục</Text>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          <View style={styles.inputContainer}>
+            <View style={styles.inputWrapper}>
+              <Ionicons name="person-outline" size={22} color="#1D3D47" style={styles.inputIcon} />
+              <TextInput
+                placeholder="Tên đăng nhập"
+                value={username}
+                onChangeText={setUsername}
+                style={styles.input}
+                autoCapitalize="none"
+                placeholderTextColor="#999"
+              />
+            </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Đăng nhập</Text>
-        )}
-      </TouchableOpacity>
+            <View style={styles.inputWrapper}>
+              <Ionicons name="lock-closed-outline" size={22} color="#1D3D47" style={styles.inputIcon} />
+              <TextInput
+                placeholder="Mật khẩu"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                style={styles.input}
+                placeholderTextColor="#999"
+              />
+              <TouchableOpacity 
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeIcon}
+              >
+                <Ionicons 
+                  name={showPassword ? "eye-off-outline" : "eye-outline"} 
+                  size={22} 
+                  color="#1D3D47" 
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
 
-      <Text style={styles.footerText}>
-        Quên mật khẩu? <Text style={styles.link}>Khôi phục</Text>
-      </Text>
+          <TouchableOpacity 
+            style={styles.forgotPassword}
+            onPress={() => router.push('/forgot-password')}
+          >
+            <Text style={styles.forgotPasswordText}>
+              Quên mật khẩu?
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.button, loading && styles.buttonDisabled]} 
+            onPress={handleLogin} 
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Đăng nhập</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.signupContainer}
+            onPress={() => router.push('/register')}
+          >
+            <Text style={styles.signupText}>Chưa có tài khoản? </Text>
+            <Text style={styles.signupLink}>Đăng ký ngay</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 }
@@ -65,56 +153,120 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#f9f9f9',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 12,
-    marginBottom: 16,
-    borderRadius: 10,
-    fontSize: 16,
     backgroundColor: '#fff',
   },
-  errorText: {
-    color: 'red',
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 20,
+    paddingTop: 40,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  logo: {
+    width: width * 0.3,
+    height: width * 0.3,
+  },
+  formContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1D3D47',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 6,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  inputContainer: {
+    marginBottom: 8,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e1e1e1',
+    paddingHorizontal: 14,
+    height: 50,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    fontSize: 15,
+    color: '#333',
+    height: '100%',
+  },
+  eyeIcon: {
+    padding: 6,
+  },
+  forgotPassword: {
+    marginBottom: 12,
+    marginTop: -4,
+    alignSelf: 'flex-end',
+    paddingRight: 4,
+  },
+  forgotPasswordText: {
+    color: '#1D3D47',
+    fontSize: 13,
+    fontWeight: '500',
   },
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#1D3D47',
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   buttonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
   },
-  footerText: {
-    marginTop: 20,
-    textAlign: 'center',
+  signupContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  signupText: {
     color: '#666',
+    fontSize: 14,
   },
-  link: {
-    color: '#007AFF',
+  signupLink: {
+    color: '#1D3D47',
+    fontSize: 14,
     fontWeight: '600',
   },
 });
