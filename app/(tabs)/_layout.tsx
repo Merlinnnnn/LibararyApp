@@ -9,20 +9,19 @@ import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/hooks/useAuth';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
-
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { isLoggedIn, isLoading } = useAuth();
   const router = useRouter();
+  
   useEffect(() => {
     if (!isLoading) {
       if (!isLoggedIn) {
-        router.replace('/login'); // Chỉ điều hướng khi kiểm tra xong
+        router.replace('/login');
       }
     }
   }, [isLoggedIn, isLoading]);
 
-  // ✅ Khi đang kiểm tra trạng thái -> Hiển thị màn hình loading
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -31,7 +30,6 @@ export default function TabLayout() {
     );
   }
 
-  // ✅ Nếu chưa đăng nhập -> Trả về trang login
   if (!isLoggedIn) {
     return (
       <View style={styles.loadingContainer}>
@@ -40,7 +38,6 @@ export default function TabLayout() {
     );
   }
 
-  // ✅ Nếu đã đăng nhập -> Hiển thị giao diện chính
   return (
     <Tabs
       screenOptions={{
@@ -57,22 +54,29 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: 'Trang chủ',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="search"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Tìm kiếm',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="magnifyingglass" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="bookHistory"
+        name="borrowed"
         options={{
-          title: 'List borrow',
+          title: 'Sách đã mượn',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="book.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Cá nhân',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
         }}
       />
     </Tabs>
@@ -87,3 +91,4 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
 });
+
