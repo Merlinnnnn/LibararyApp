@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: 'https://learners-bali-virgin-tiles.trycloudflare.com',
+  BASE_URL: 'https://paste-saw-mistake-awesome.trycloudflare.com',
   API_VERSION: 'v1',
   TIMEOUT: 10000, // 10 seconds
   HEADERS: {
