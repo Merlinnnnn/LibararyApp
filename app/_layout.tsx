@@ -5,6 +5,9 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
+import { useAuth } from '../hooks/useAuth';
+import { setRouter } from '../services/navigationService';
+import { useRouter } from 'expo-router';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 
@@ -15,6 +18,13 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+
+  const { isLoggedIn } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    setRouter(router);
+  }, [router]);
 
   useEffect(() => {
     if (loaded) {
@@ -43,6 +53,15 @@ export default function RootLayout() {
 
         {/* Màn hình lỗi 404 */}
         <Stack.Screen name="+not-found" />
+
+        {/* Màn hình chi tiết khoản vay */}
+        <Stack.Screen
+          name="loan/[id]"
+          options={{
+            title: 'Loan Details',
+            headerShown: true,
+          }}
+        />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

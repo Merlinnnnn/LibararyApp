@@ -10,15 +10,30 @@ import { LoginRequest } from '@/services/types/auth.types';
 interface JwtPayload {
   fullname: string;
   email: string;
+  userId: string;
+  exp: number;  // JWT expiration timestamp
   [key: string]: any;
+}
+
+interface UserInfo {
+  userId: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  roles: string[];
 }
 
 export const useAuth = () => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [userInfo, setUserInfo] = useState<{ fullname: string; email: string }>({
-    fullname: '',
-    email: '',
+  const [userInfo, setUserInfo] = useState<UserInfo>({
+    userId: '',
+    username: '',
+    firstName: '',
+    lastName: '',
+    fullName: '',
+    roles: []
   });
   const router = useRouter();
 
@@ -27,17 +42,35 @@ export const useAuth = () => {
     checkLoginStatus();
   }, []);
 
+  const isTokenExpired = (token: string): boolean => {
+    try {
+      const decoded: JwtPayload = jwtDecode(token);
+      const currentTime = Math.floor(Date.now() / 1000);
+      return decoded.exp < currentTime;
+    } catch {
+      return true;
+    }
+  };
+
   // Theo dõi trạng thái của app
   useEffect(() => {
     let timeout: NodeJS.Timeout;
 
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
-      if (nextAppState === 'background') {
+      if (nextAppState === 'active') {
+        if (timeout) clearTimeout(timeout);
+        const token = await AsyncStorage.getItem('userToken');
+        if (token && isTokenExpired(token)) {
+          const isValid = await authService.validateToken(token);
+          if (!isValid) {
+            await logout();
+            router.replace('/login');
+          }
+        }
+      } else if (nextAppState === 'background') {
         timeout = setTimeout(async () => {
           await logout();
         }, 5 * 60 * 1000); // 5 phút
-      } else if (nextAppState === 'active') {
-        if (timeout) clearTimeout(timeout);
       }
     };
 
@@ -51,12 +84,24 @@ export const useAuth = () => {
   const checkLoginStatus = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      if (token) {
+      const storedUserInfo = await AsyncStorage.getItem('userInfo');
+      
+      if (token && storedUserInfo) {
+        if (isTokenExpired(token)) {
+          const isValid = await authService.validateToken(token);
+          if (!isValid) {
+            await logout();
+            router.replace('/login');
+            return;
+          }
+        }
         setIsLoggedIn(true);
-        decodeToken(token);
+        setUserInfo(JSON.parse(storedUserInfo));
       }
     } catch (error) {
       console.error('Lỗi kiểm tra trạng thái đăng nhập:', error);
+      await logout();
+      router.replace('/login');
     } finally {
       setIsLoading(false);
     }
@@ -65,13 +110,16 @@ export const useAuth = () => {
   const decodeToken = (token: string) => {
     try {
       const decoded: JwtPayload = jwtDecode(token);
-      setUserInfo({
-        fullname: decoded.fullname || '',
-        email: decoded.email || '',
+      // Get user info from storage instead of token
+      AsyncStorage.getItem('userInfo').then(storedInfo => {
+        if (storedInfo) {
+          const parsedInfo: UserInfo = JSON.parse(storedInfo);
+          setUserInfo(parsedInfo);
+        }
       });
     } catch (error) {
       console.error('Lỗi giải mã token:', error);
-      logout(); // Đăng xuất nếu token không hợp lệ
+      logout();
     }
   };
 
@@ -81,27 +129,16 @@ export const useAuth = () => {
       const loginData: LoginRequest = { username, password };
       const { data, success, message } = await authService.login(loginData);
       
-      // if (__DEV__) {
-      //   console.log('[Login Response]', {
-      //     data,
-      //     success,
-      //     message
-      //   });
-      // }
-
       if (!success || !data?.token) {
         throw new Error(message || 'Đăng nhập thất bại');
       }
 
       await AsyncStorage.setItem('userToken', data.token);
       await AsyncStorage.setItem('userInfo', JSON.stringify(data.userInfo));
-      decodeToken(data.token);
+      setUserInfo(data.userInfo);
       setIsLoggedIn(true);
       router.replace('/(tabs)');
     } catch (error: any) {
-      // if (__DEV__) {
-      //   console.error('[Login Error]', error);
-      // }
       throw error;
     } finally {
       setIsLoading(false);
@@ -166,8 +203,16 @@ export const useAuth = () => {
   const logout = async () => {
     try {
       await AsyncStorage.removeItem('userToken');
+      await AsyncStorage.removeItem('userInfo');
       setIsLoggedIn(false);
-      setUserInfo({ fullname: '', email: '' });
+      setUserInfo({
+        userId: '',
+        username: '',
+        firstName: '',
+        lastName: '',
+        fullName: '',
+        roles: []
+      });
       router.replace('/login');
     } catch (error) {
       console.error('Lỗi đăng xuất:', error);

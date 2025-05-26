@@ -1,6 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from './api.config';
+import { navigateToLogin } from '../navigationService';
 
 // Tạo instance axios với base URL
 const api = axios.create({
@@ -14,6 +15,7 @@ api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
+      console.log('token', token);
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -33,8 +35,9 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
       try {
-        await AsyncStorage.removeItem('userToken');
-        // Có thể thêm logic redirect về trang login ở đây
+        // await AsyncStorage.removeItem('userToken');
+        // await AsyncStorage.removeItem('userInfo');
+        // navigateToLogin();
       } catch (e) {
         console.error('Error removing token:', e);
       }

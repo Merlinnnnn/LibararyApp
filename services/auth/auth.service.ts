@@ -86,6 +86,23 @@ class AuthService {
     }
   }
 
+  async validateToken(token: string): Promise<boolean> {
+    try {
+      const response = await axios.post(getApiUrl('/api/v1/auth/introspect'), { token });
+      const { success, code } = response.data;
+      
+      // Token is valid only if success is true and there's no error code
+      return success === true && code !== 10004;
+    } catch (error: any) {
+      // If there's an error response with code 10004, token is invalid
+      if (error.response?.data?.code === 10004) {
+        return false;
+      }
+      // For other errors (network, server errors), we'll consider token as invalid
+      return false;
+    }
+  }
+
   async resendVerificationEmail(email: string): Promise<AuthResponse> {
     try {
       const response = await axios.post<AuthResponse>(getApiUrl('/auth/resend-verification'), { email });

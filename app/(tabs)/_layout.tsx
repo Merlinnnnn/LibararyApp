@@ -66,7 +66,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="borrowed"
+        name="loan"
         options={{
           title: 'Sách đã mượn',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="book.fill" color={color} />,
