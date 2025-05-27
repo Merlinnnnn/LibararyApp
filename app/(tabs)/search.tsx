@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, TextInput, ScrollView, TouchableOpacity, Image, ActivityIndicator, Animated, Modal, FlatList, Alert } from 'react-native';
+import { StyleSheet, View, Text, TextInput, ScrollView, TouchableOpacity, Image, ActivityIndicator, Animated, Modal, FlatList, Alert, RefreshControl } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import debounce from 'lodash/debounce';
 import { documentService } from '../../services/book/document.service';
 import { Document, DocumentType, DocumentCategory, DocumentFilterParams } from '../../services/types/book.types';
 import { useRouter } from 'expo-router';
+import { favoriteService } from '../../services/book/favoriteService';
 
 // Map document types to icons
 const documentTypeIcons: Record<string, string> = {
@@ -38,10 +39,28 @@ export default function SearchScreen() {
   const router = useRouter();
   const [selectedBook, setSelectedBook] = useState<Document | null>(null);
   const [showBookModal, setShowBookModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isFirstFocus, setIsFirstFocus] = useState(true);
 
-  // Fetch document types on component mount
+  // Fetch initial data and document types on component mount
   useEffect(() => {
-    fetchDocumentTypes();
+    const fetchInitialData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        await Promise.all([
+          fetchDocumentTypes(),
+          debouncedSearch('', null, 0)
+        ]);
+      } catch (error) {
+        console.error('Error fetching initial data:', error);
+        setError('Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchInitialData();
   }, []);
 
   const fetchDocumentTypes = async () => {
@@ -423,6 +442,50 @@ export default function SearchScreen() {
     }
   };
 
+  const handleSearchFocus = () => {
+    if (isFirstFocus) {
+      setIsFirstFocus(false);
+      debouncedSearch('', selectedType, 0);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    setError(null);
+    try {
+      const [typesResponse, searchResponse] = await Promise.all([
+        documentService.getDocumentTypes(),
+        documentService.filterDocuments({
+          documentName: searchQuery,
+          page: 0,
+          size: 10,
+          sortBy: 'documentId',
+          sortDirection: 'desc',
+          documentCategory: DocumentCategory.BOTH,
+          documentTypeIds: selectedType ? [documentTypes.find(t => t.typeName === selectedType)?.documentTypeId].filter(Boolean) : undefined
+        })
+      ]);
+      
+      setDocumentTypes(typesResponse);
+      setSearchResults(searchResponse.content);
+      setTotalPages(searchResponse.totalPages);
+      setCurrentPage(searchResponse.number);
+    } catch (error) {
+      console.error('Error refreshing:', error);
+      setError('Có lỗi xảy ra khi làm mới. Vui lòng thử lại.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleToggleFavorite = async (documentId: number) => {
+    try {
+      await favoriteService.toggleFavorite(documentId);
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
       <View style={styles.searchContainer}>
@@ -434,6 +497,7 @@ export default function SearchScreen() {
             placeholderTextColor={Colors[colorScheme].icon}
             value={searchQuery}
             onChangeText={handleSearchChange}
+            onFocus={handleSearchFocus}
           />
           {searchQuery !== '' && (
             <TouchableOpacity onPress={() => handleSearchChange('')}>
@@ -555,6 +619,9 @@ export default function SearchScreen() {
       {error ? (
         <View style={styles.errorContainer}>
           <Text style={[styles.errorText, { color: Colors[colorScheme].text }]}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
+            <Text style={styles.retryButtonText}>Thử lại</Text>
+          </TouchableOpacity>
         </View>
       ) : isLoading && searchResults.length === 0 ? (
         <View style={styles.loadingContainer}>
@@ -570,6 +637,14 @@ export default function SearchScreen() {
       ) : (
         <ScrollView 
           style={styles.resultsContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[Colors[colorScheme].tint]}
+              tintColor={Colors[colorScheme].tint}
+            />
+          }
           onScroll={({ nativeEvent }) => {
             const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
             const paddingToBottom = 20;
@@ -591,9 +666,24 @@ export default function SearchScreen() {
                 resizeMode="cover"
               />
               <View style={styles.bookInfo}>
-                <Text style={[styles.bookTitle, { color: Colors[colorScheme].text }]}>
-                  {doc.documentName}
-                </Text>
+                <View style={styles.bookHeader}>
+                  <Text style={[styles.bookTitle, { color: Colors[colorScheme].text }]}>
+                    {doc.documentName}
+                  </Text>
+                  <TouchableOpacity 
+                    style={styles.favoriteButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleToggleFavorite(doc.documentId);
+                    }}
+                  >
+                    <FontAwesome 
+                      name="heart-o" 
+                      size={20} 
+                      color={Colors[colorScheme].icon} 
+                    />
+                  </TouchableOpacity>
+                </View>
                 <Text style={[styles.bookAuthor, { color: Colors[colorScheme].text }]}>
                   {doc.author}
                 </Text>
@@ -818,6 +908,12 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
+  bookHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
   bookTitle: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -972,5 +1068,20 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: '600',
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: Colors.light.tint,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  favoriteButton: {
+    padding: 4,
   },
 }); 

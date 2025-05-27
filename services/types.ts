@@ -87,4 +87,71 @@ export interface GetBooksRequest {
   limit?: number;
   category?: string;
   search?: string;
+}
+
+export interface Document {
+  documentId: number;
+  isbn: string | null;
+  documentName: string;
+  author: string;
+  publisher: string;
+  publishedDate: string | null;
+  language: string | null;
+  price: number;
+  quantity: number;
+  description: string;
+  coverImage: string;
+  documentCategory: string;
+  summary: string | null;
+  approvalStatus: string;
+  documentTypes: DocumentType[];
+  courses: Course[];
+  physicalDocument: PhysicalDocument | null;
+  digitalDocument: DigitalDocument | null;
+}
+
+export interface DocumentType {
+  documentTypeId: number;
+  typeName: string;
+  description: string;
+}
+
+export interface Course {
+  courseId: number;
+  courseCode: string;
+  courseName: string;
+  description: string;
+}
+
+export interface PhysicalDocument {
+  physicalDocumentId: number;
+  documentName: string;
+  author: string;
+  publisher: string;
+  description: string;
+  coverImage: string;
+  isbn: string;
+  quantity: number;
+  borrowedCount: number;
+  unavailableCount: number;
+  availableCopies: number;
+}
+
+export interface DigitalDocument {
+  digitalDocumentId: number;
+  documentName: string;
+  author: string;
+  publisher: string;
+  description: string;
+  coverImage: string;
+  visibilityStatus: string;
+  uploads: Upload[];
+}
+
+export interface Upload {
+  uploadId: number;
+  fileName: string;
+  fileType: string;
+  filePath: string;
+  uploadedAt: string;
 } 

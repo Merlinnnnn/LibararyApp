@@ -142,9 +142,22 @@ export default function BookDetailScreen() {
     descriptionContainer: {
       marginBottom: 24,
     },
+    descriptionBox: {
+      padding: 16,
+      borderRadius: 12,
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 3,
+      elevation: 3,
+    },
     description: {
       fontSize: 16,
       lineHeight: 24,
+      textAlign: 'justify',
     },
     summaryContainer: {
       marginBottom: 24,
@@ -641,18 +654,22 @@ export default function BookDetailScreen() {
             <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>
               Mô tả
             </Text>
-            <Text style={[styles.description, { color: Colors[colorScheme].text }]}>
-              {book.description || 'Chưa có mô tả'}
-            </Text>
+            <View style={[styles.descriptionBox, { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5' }]}>
+              <Text style={[styles.description, { color: Colors[colorScheme].text }]}>
+                {book.description || 'Chưa có mô tả'}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.summaryContainer}>
             <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>
               Tóm tắt
             </Text>
-            <Text style={[styles.summary, { color: Colors[colorScheme].text }]}>
-              {book.summary || 'Chưa có tóm tắt'}
-            </Text>
+            <View style={[styles.descriptionBox, { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5' }]}>
+              <Text style={[styles.description, { color: Colors[colorScheme].text }]}>
+                {book.summary || 'Chưa có tóm tắt'}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.digitalContainer}>
