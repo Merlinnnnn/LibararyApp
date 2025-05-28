@@ -2,6 +2,7 @@ import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image } from 'rea
 import { useColorScheme } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { FontAwesome } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 type MenuItem = {
   id: number;
@@ -11,6 +12,7 @@ type MenuItem = {
 };
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const colorScheme = useColorScheme() || 'light';
 
   const menuItems: MenuItem[] = [
@@ -18,7 +20,7 @@ export default function ProfileScreen() {
       id: 1,
       title: 'Thông tin cá nhân',
       icon: 'user',
-      action: () => {},
+      action: () => router.push('/user-info'),
     },
     {
       id: 2,

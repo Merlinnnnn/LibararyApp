@@ -1,21 +1,31 @@
 import api from '../config/axios';
-import { User, BorrowedBook } from '../types/user.types';
+import { User, BorrowedBook, UserDetail } from '../types/user.types';
 import { UpdateProfileRequest } from '../types/request.types';
+import { getApiUrl } from '../config/api.config';
+import { APIResponse } from '../types/common.types';
+
+// Assuming you have a way to get the user's authentication token
+// import { getAuthToken } from '../auth/auth.utils'; // Replace with your actual token retrieval logic
+
+interface GetUserDetailResponse extends APIResponse<UserDetail> { }
 
 export const userService = {
-  // Lấy thông tin user
-  getProfile: () => 
+  // Lấy thông tin user cũ (có thể refactor sau)
+  getProfile: () =>
     api.get<User>('/user/profile'),
-  
-  // Cập nhật thông tin user
-  updateProfile: (data: UpdateProfileRequest) => 
+
+  // Cập nhật thông tin user cũ (có thể refactor sau)
+  updateProfile: (data: UpdateProfileRequest) =>
     api.put<User>('/user/profile', data),
-  
+
   // Lấy danh sách sách đã mượn
-  getBorrowedBooks: () => 
+  getBorrowedBooks: () =>
     api.get<BorrowedBook[]>('/user/borrowed-books'),
-  
+
   // Lấy danh sách sách đang theo dõi
-  getFollowedBooks: () => 
+  getFollowedBooks: () =>
     api.get<BorrowedBook[]>('/user/followed-books'),
+
+  getUserInfo: () =>
+    api.get<GetUserDetailResponse>('/api/v1/users/info'),
 }; 

@@ -53,7 +53,7 @@ export default function RootLayout() {
 
         {/* Màn hình lỗi 404 */}
         <Stack.Screen name="+not-found" />
-
+        <Stack.Screen name="user-info" options={{ headerShown: false }} />
         {/* Màn hình chi tiết khoản vay */}
         <Stack.Screen
           name="loan/[id]"
