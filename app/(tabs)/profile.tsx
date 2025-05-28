@@ -3,6 +3,7 @@ import { useColorScheme } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useAuth } from '../../hooks/useAuth';
 
 type MenuItem = {
   id: number;
@@ -14,6 +15,7 @@ type MenuItem = {
 export default function ProfileScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme() || 'light';
+  const { logout } = useAuth();
 
   const menuItems: MenuItem[] = [
     {
@@ -97,7 +99,7 @@ export default function ProfileScreen() {
 
       <TouchableOpacity
         style={[styles.logoutButton, { backgroundColor: Colors[colorScheme].tint }]}
-        onPress={() => {}}
+        onPress={logout}
       >
         <Text style={styles.logoutButtonText}>Đăng xuất</Text>
       </TouchableOpacity>

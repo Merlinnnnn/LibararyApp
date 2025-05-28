@@ -1,16 +1,25 @@
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { FontAwesome } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { chatAPI, Message, QuickReply, BookDetails } from '../services/chat/chatService';
 
-interface Message {
-  id: string;
+// Types
+interface CardButton {
+  type: 'POST' | 'GET';
   text: string;
-  isUser: boolean;
-  timestamp: Date;
+  payload: string;
+  url: string;
+}
+
+interface Card {
+  title: string;
+  subtitle: string;
+  imageUrl: string;
+  buttons: CardButton[];
 }
 
 export default function ChatbotScreen() {
@@ -25,30 +34,87 @@ export default function ChatbotScreen() {
     },
   ]);
   const [inputText, setInputText] = useState('');
+  const [sessionId] = useState(`session-${Math.random().toString(36).substr(2, 9)}`);
+  const messagesEndRef = useRef<ScrollView>(null);
+  const [bookDetails, setBookDetails] = useState<BookDetails | null>(null);
+  const [bookDetailsOpen, setBookDetailsOpen] = useState(false);
 
-  const handleSend = () => {
-    if (inputText.trim() === '') return;
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollToEnd({ animated: true });
+    }
+  }, [messages]);
 
+  const handleSend = async (text: string, payload?: string | object) => {
+    if (!text.trim() && !payload) return;
+
+    // Add user message to UI immediately
     const newMessage: Message = {
       id: Date.now().toString(),
-      text: inputText.trim(),
+      text: text.trim(),
       isUser: true,
       timestamp: new Date(),
     };
-
     setMessages(prev => [...prev, newMessage]);
     setInputText('');
 
-    // TODO: Implement actual chatbot response logic here
-    setTimeout(() => {
-      const botResponse: Message = {
+    try {
+      // Send message to API
+      const data = await chatAPI.sendMessage(text, sessionId, payload);
+
+      if (data.success) {
+        // Add bot response to UI
+        const botMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: data.data.reply,
+          isUser: false,
+          timestamp: new Date(),
+          quickReplies: data.data.quickReplies || undefined,
+          cards: data.data.cards || undefined,
+          options: data.data.suggestions || undefined,
+        };
+        setMessages(prev => [...prev, botMessage]);
+      } else {
+        // Handle API error
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 1).toString(),
+          text: data.message || 'Xin lỗi, đã có lỗi xảy ra.',
+          isUser: false,
+          timestamp: new Date(),
+        }]);
+      }
+    } catch (err) {
+      console.error('Network error:', err);
+      // Handle network error
+      setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
-        text: 'Tôi đang xử lý yêu cầu của bạn...',
+        text: 'Lỗi mạng, vui lòng thử lại sau.',
         isUser: false,
         timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, botResponse]);
-    }, 1000);
+      }]);
+    }
+  };
+
+  const handleQuickReply = (qr: QuickReply) => {
+    try {
+      const parsedPayload = JSON.parse(qr.payload);
+      handleSend('', parsedPayload);
+    } catch (err) {
+      console.error('Invalid payload:', err);
+    }
+  };
+
+  const handleGetBtn = async (url: string) => {
+    const match = url.match(/\/api\/v1\/documents\/(\d+)/);
+    if (match) {
+      try {
+        const data = await chatAPI.getBookDetails(match[1]);
+        setBookDetails(data.data);
+        setBookDetailsOpen(true);
+      } catch (err) {
+        console.error('Error fetching book details:', err);
+      }
+    }
   };
 
   return (
@@ -74,6 +140,7 @@ export default function ChatbotScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         <ScrollView 
+          ref={messagesEndRef}
           style={styles.messagesContainer}
           contentContainerStyle={styles.messagesContent}
         >
@@ -98,6 +165,68 @@ export default function ChatbotScreen() {
               ]}>
                 {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Text>
+
+              {message.quickReplies && message.quickReplies.length > 0 && (
+                <View style={styles.quickRepliesContainer}>
+                  {message.quickReplies.map((qr, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[styles.quickReplyButton, { backgroundColor: Colors[colorScheme].tint }]}
+                      onPress={() => handleQuickReply(qr)}
+                    >
+                      <Text style={styles.quickReplyText}>{qr.text}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {message.cards && message.cards.length > 0 && (
+                <View style={styles.cardsContainer}>
+                  {message.cards.map((card, index) => (
+                    <View key={index} style={styles.card}>
+                      <Text style={styles.cardTitle}>{card.title}</Text>
+                      <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
+                      {card.imageUrl && (
+                        <Image
+                          source={{ uri: card.imageUrl }}
+                          style={styles.cardImage}
+                        />
+                      )}
+                      <View style={styles.cardButtons}>
+                        {card.buttons.map((btn, btnIndex) => (
+                          <TouchableOpacity
+                            key={btnIndex}
+                            style={[styles.cardButton, { backgroundColor: Colors[colorScheme].tint }]}
+                            onPress={() => {
+                              if (btn.type === 'POST') {
+                                handleSend(btn.text, btn.payload);
+                              } else if (btn.type === 'GET') {
+                                handleGetBtn(btn.url);
+                              }
+                            }}
+                          >
+                            <Text style={styles.cardButtonText}>{btn.text}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {message.options && message.options.length > 0 && (
+                <View style={styles.optionsContainer}>
+                  {message.options.map((option, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.optionButton}
+                      disabled
+                    >
+                      <Text style={styles.optionText}>{option}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
           ))}
         </ScrollView>
@@ -117,7 +246,7 @@ export default function ChatbotScreen() {
           />
           <TouchableOpacity 
             style={[styles.sendButton, { backgroundColor: Colors[colorScheme].tint }]}
-            onPress={handleSend}
+            onPress={() => handleSend(inputText)}
           >
             <FontAwesome name="send" size={20} color="#FFFFFF" />
           </TouchableOpacity>
@@ -212,5 +341,79 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  quickRepliesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  quickReplyButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  quickReplyText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+  },
+  cardsContainer: {
+    marginTop: 8,
+    gap: 8,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 8,
+  },
+  cardImage: {
+    width: '100%',
+    height: 150,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  cardButtons: {
+    gap: 8,
+  },
+  cardButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  cardButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+  },
+  optionsContainer: {
+    marginTop: 8,
+    gap: 8,
+  },
+  optionButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  optionText: {
+    color: '#333',
+    fontSize: 14,
   },
 }); 

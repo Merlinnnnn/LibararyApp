@@ -37,6 +37,7 @@ export default function HomeScreen() {
     }
   ]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [favorites, setFavorites] = useState<Set<number>>(new Set());
 
   const fetchBooks = async () => {
     try {
@@ -125,9 +126,9 @@ export default function HomeScreen() {
               }}
             >
               <FontAwesome 
-                name="heart-o" 
+                name={favorites.has(book.documentId) ? "heart" : "heart-o"} 
                 size={20} 
-                color={Colors[colorScheme].icon} 
+                color={favorites.has(book.documentId) ? "#FF3B30" : Colors[colorScheme].icon} 
               />
             </TouchableOpacity>
           </View>
@@ -164,10 +165,32 @@ export default function HomeScreen() {
   };
 
   const handleToggleFavorite = async (documentId: number) => {
+    // Update UI immediately
+    setFavorites(prev => {
+      const newFavorites = new Set(prev);
+      if (newFavorites.has(documentId)) {
+        newFavorites.delete(documentId);
+      } else {
+        newFavorites.add(documentId);
+      }
+      return newFavorites;
+    });
+
+    // Call API in background
     try {
       await favoriteService.toggleFavorite(documentId);
     } catch (error) {
       console.error('Error toggling favorite:', error);
+      // Revert UI if API fails
+      setFavorites(prev => {
+        const newFavorites = new Set(prev);
+        if (newFavorites.has(documentId)) {
+          newFavorites.delete(documentId);
+        } else {
+          newFavorites.add(documentId);
+        }
+        return newFavorites;
+      });
     }
   };
 

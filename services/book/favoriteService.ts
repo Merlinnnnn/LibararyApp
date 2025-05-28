@@ -23,7 +23,7 @@ class FavoriteService {
 
   async isFavorite(documentId: number): Promise<ApiResponse<boolean>> {
     try {
-      const response = await api.get(`${getApiUrl(`${this.baseUrl}/${documentId}`)}`);
+      const response = await api.get(`${getApiUrl(`/api/v1/favorites/${documentId}`)}`);
       return response.data;
     } catch (error) {
       console.error('Error checking favorite status:', error);
@@ -33,7 +33,7 @@ class FavoriteService {
 
   async toggleFavorite(documentId: number): Promise<ApiResponse<void>> {
     try {
-      const response = await api.post(`${getApiUrl(`${this.baseUrl}/${documentId}/favorite`)}`);
+      const response = await api.post(`${getApiUrl(`/api/v1/documents/${documentId}/favorite`)}`);
       return response.data;
     } catch (error) {
       console.error('Error toggling favorite:', error);

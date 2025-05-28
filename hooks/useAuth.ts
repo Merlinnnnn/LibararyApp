@@ -204,6 +204,8 @@ export const useAuth = () => {
     try {
       await AsyncStorage.removeItem('userToken');
       await AsyncStorage.removeItem('userInfo');
+      await AsyncStorage.removeItem('@drm_private_key');
+      await AsyncStorage.removeItem('@drm_public_key');
       setIsLoggedIn(false);
       setUserInfo({
         userId: '',

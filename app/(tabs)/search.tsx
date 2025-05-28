@@ -41,6 +41,8 @@ export default function SearchScreen() {
   const [showBookModal, setShowBookModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [isFirstFocus, setIsFirstFocus] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(false);
+  const [favorites, setFavorites] = useState<Set<number>>(new Set());
 
   // Fetch initial data and document types on component mount
   useEffect(() => {
@@ -445,7 +447,10 @@ export default function SearchScreen() {
   const handleSearchFocus = () => {
     if (isFirstFocus) {
       setIsFirstFocus(false);
-      debouncedSearch('', selectedType, 0);
+      setIsInitialLoading(true);
+      debouncedSearch('', selectedType, 0).finally(() => {
+        setIsInitialLoading(false);
+      });
     }
   };
 
@@ -479,10 +484,32 @@ export default function SearchScreen() {
   };
 
   const handleToggleFavorite = async (documentId: number) => {
+    // Update UI immediately
+    setFavorites(prev => {
+      const newFavorites = new Set(prev);
+      if (newFavorites.has(documentId)) {
+        newFavorites.delete(documentId);
+      } else {
+        newFavorites.add(documentId);
+      }
+      return newFavorites;
+    });
+
+    // Call API in background
     try {
       await favoriteService.toggleFavorite(documentId);
     } catch (error) {
       console.error('Error toggling favorite:', error);
+      // Revert UI if API fails
+      setFavorites(prev => {
+        const newFavorites = new Set(prev);
+        if (newFavorites.has(documentId)) {
+          newFavorites.delete(documentId);
+        } else {
+          newFavorites.add(documentId);
+        }
+        return newFavorites;
+      });
     }
   };
 
@@ -623,6 +650,13 @@ export default function SearchScreen() {
             <Text style={styles.retryButtonText}>Thử lại</Text>
           </TouchableOpacity>
         </View>
+      ) : isInitialLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
+          <Text style={[styles.loadingText, { color: Colors[colorScheme].text }]}>
+            Đang tải danh sách sách...
+          </Text>
+        </View>
       ) : isLoading && searchResults.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
@@ -678,9 +712,9 @@ export default function SearchScreen() {
                     }}
                   >
                     <FontAwesome 
-                      name="heart-o" 
+                      name={favorites.has(doc.documentId) ? "heart" : "heart-o"} 
                       size={20} 
-                      color={Colors[colorScheme].icon} 
+                      color={favorites.has(doc.documentId) ? "#FF3B30" : Colors[colorScheme].icon} 
                     />
                   </TouchableOpacity>
                 </View>
@@ -1083,5 +1117,10 @@ const styles = StyleSheet.create({
   },
   favoriteButton: {
     padding: 4,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    textAlign: 'center',
   },
 }); 

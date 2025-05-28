@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import UserBorrowedBooks from '@/components/loan/UserBorrowedBooks';
 import DigitalBooks from '@/components/loan/DigitalBooks';
@@ -12,10 +12,14 @@ const FILTERS = [
 
 export default function BorrowedScreen() {
   const [activeFilter, setActiveFilter] = useState('PHYSICAL');
+  const router = useRouter();
 
   const handleReadBook = (bookId: string) => {
-    // Handle read book action
-    console.log('Reading book:', bookId);
+    // Navigate to digital viewer screen
+    router.push({
+      pathname: '/digital-viewer',
+      params: { id: bookId }
+    });
   };
 
   return (
