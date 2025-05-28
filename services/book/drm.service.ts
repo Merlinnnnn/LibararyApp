@@ -2,6 +2,7 @@ import { getApiUrl } from '../config/api.config';
 import api from '../config/axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
+import * as RSA from 'react-native-rsa-native';
 
 interface LicenseResponse {
   code: number;
@@ -57,24 +58,13 @@ class DRMService {
     privateKeyRaw: string;
   }> {
     try {
-      const keyPair = await window.crypto.subtle.generateKey(
-        {
-          name: 'RSA-OAEP',
-          modulusLength: 2048,
-          publicExponent: new Uint8Array([1, 0, 1]),
-          hash: 'SHA-256',
-        },
-        true,
-        ['encrypt', 'decrypt']
-      );
-
-      const publicKeyBuffer = await window.crypto.subtle.exportKey('spki', keyPair.publicKey);
-      const privateKeyBuffer = await window.crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
-
+      // Sử dụng react-native-rsa-native để tạo cặp khóa
+      const keys = await RSA.RSA.generateKeys(2048);
+      
       return {
-        publicKey: this.arrayBufferToBase64(publicKeyBuffer),
-        privateKey: this.arrayBufferToBase64(privateKeyBuffer),
-        privateKeyRaw: this.arrayBufferToBase64(privateKeyBuffer)
+        publicKey: keys.public,
+        privateKey: keys.private,
+        privateKeyRaw: keys.private
       };
     } catch (error) {
       console.error('Failed to generate RSA keys:', error);
@@ -146,33 +136,12 @@ class DRMService {
     }
 
     try {
-      // Convert base64 to ArrayBuffer
-      const binaryString = atob(encryptedContentKey);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      // Import private key
-      const privateKeyBuffer = await window.crypto.subtle.importKey(
-        'pkcs8',
-        this.base64ToArrayBuffer(this.privateKey),
-        {
-          name: 'RSA-OAEP',
-          hash: 'SHA-256',
-        },
-        false,
-        ['decrypt']
-      );
-
-      // Decrypt
-      const decrypted = await window.crypto.subtle.decrypt(
-        { name: 'RSA-OAEP' },
-        privateKeyBuffer,
-        bytes
-      );
-
-      return new Uint8Array(decrypted);
+      // Sử dụng react-native-rsa-native để giải mã
+      const decrypted = await RSA.RSA.decrypt(encryptedContentKey, this.privateKey);
+      
+      // Chuyển đổi string thành Uint8Array
+      const encoder = new TextEncoder();
+      return encoder.encode(decrypted);
     } catch (error) {
       console.error('Failed to decrypt content key:', error);
       throw error;
@@ -244,21 +213,8 @@ class DRMService {
 
   async encryptForPublicKey(plaintext: string, base64PublicKey: string): Promise<string> {
     try {
-      // Remove PEM headers and newlines from the public key
-      const cleanPublicKey = base64PublicKey
-        .replace('-----BEGIN PUBLIC KEY-----', '')
-        .replace('-----END PUBLIC KEY-----', '')
-        .replace(/\n/g, '');
-
-      // Combine plaintext with public key for encryption
-      const combinedText = plaintext + cleanPublicKey;
-
-      // Encrypt using SHA-256
-      const encrypted = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        combinedText
-      );
-
+      // Sử dụng react-native-rsa-native để mã hóa
+      const encrypted = await RSA.RSA.encrypt(plaintext, base64PublicKey);
       return encrypted;
     } catch (error) {
       console.error('Failed to encrypt with public key:', error);
