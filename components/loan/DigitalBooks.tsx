@@ -1,64 +1,63 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, Text, ActivityIndicator, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@react-navigation/native';
 import { useAuth } from '@/hooks/useAuth';
-import { digitalService, AccessRequest } from '@/services/loan/digital.service';
+import { digitalService, DigitalDocument } from '@/services/loan/digital.service';
 
 interface DigitalBooksProps {
-  onReadBook?: (bookId: string) => void;
+  onReadBook?: (uploadId: number) => void;
   onLoadingChange?: (isLoading: boolean) => void;
 }
 
 export default function DigitalBooks({ onReadBook, onLoadingChange }: DigitalBooksProps) {
   const { colors } = useTheme();
   const { userInfo } = useAuth();
-  const [digitalBooks, setDigitalBooks] = useState<AccessRequest[]>([]);
+  const [digitalBooks, setDigitalBooks] = useState<DigitalDocument[]>([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loadingReadId, setLoadingReadId] = useState<number | null>(null);
 
-  const fetchDigitalBooks = async (pageNum: number = 0) => {
+  const fetchDigitalBooks = async () => {
     try {
       if (!userInfo.userId) return;
-      const response = await digitalService.getUserDigitalBooks(userInfo.userId, pageNum);
-      
-      if (pageNum === 0) {
-        setDigitalBooks(response.data.content);
-      } else {
-        setDigitalBooks(prev => [...prev, ...response.data.content]);
-      }
-      setHasMore(!response.data.last);
+      setError(null);
+      const response = await digitalService.getUserDigitalBooks();
+      setDigitalBooks(response.data);
     } catch (error) {
       console.error('Error fetching digital books:', error);
+      setError('Không thể tải danh sách sách điện tử. Vui lòng thử lại sau.');
     } finally {
       setLoading(false);
-     
+      onLoadingChange?.(false);
     }
   };
 
   useEffect(() => {
     setLoading(true);
+    onLoadingChange?.(true);
     fetchDigitalBooks();
   }, [userInfo.userId]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchDigitalBooks(0);
+    await fetchDigitalBooks();
     setRefreshing(false);
   };
 
-  const loadMore = () => {
-    if (!loading && hasMore) {
-      const nextPage = page + 1;
-      setPage(nextPage);
-      fetchDigitalBooks(nextPage);
+  const handleReadBook = async (uploadId: number) => {
+    try {
+      setLoadingReadId(uploadId);
+      await onReadBook?.(uploadId);
+    } catch (error) {
+      console.error('Error reading book:', error);
+    } finally {
+      setLoadingReadId(null);
     }
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Chưa có';
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('vi-VN', {
       day: '2-digit',
@@ -67,75 +66,125 @@ export default function DigitalBooks({ onReadBook, onLoadingChange }: DigitalBoo
     });
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'APPROVED':
-        return (
-          <View style={[styles.badge, { backgroundColor: '#4CAF50' }]}>
-            <Ionicons name="checkmark-circle" size={14} color="#fff" />
-            <Text style={styles.badgeText}>Đã duyệt</Text>
-          </View>
-        );
-      case 'PENDING':
-        return (
-          <View style={[styles.badge, { backgroundColor: '#FFA000' }]}>
-            <Ionicons name="time" size={14} color="#fff" />
-            <Text style={styles.badgeText}>Đang chờ</Text>
-          </View>
-        );
-      case 'REJECTED':
-        return (
-          <View style={[styles.badge, { backgroundColor: '#F44336' }]}>
-            <Ionicons name="close-circle" size={14} color="#fff" />
-            <Text style={styles.badgeText}>Từ chối</Text>
-          </View>
-        );
-      default:
-        return null;
-    }
-  };
+  const renderItem = ({ item }: { item: DigitalDocument }) => {
+    const hasUploads = item.uploads && item.uploads.length > 0;
 
-  const renderItem = ({ item }: { item: AccessRequest }) => (
-    <View style={[styles.bookCard, { backgroundColor: colors.card }]}>
-      <View style={styles.bookInfo}>
-        <View style={styles.titleRow}>
-          <Text style={[styles.bookTitle, { color: colors.text }]}>
-            {item.documentName || `Sách điện tử #${item.uploadId}`}
-          </Text>
-          {getStatusBadge(item.status)}
-        </View>
-        <View style={styles.metaContainer}>
-          <View style={styles.bookMeta}>
-            <Ionicons name="time-outline" size={16} color={colors.primary} />
-            <Text style={[styles.bookMetaText, { color: colors.text }]}>
-              Ngày yêu cầu: {formatDate(item.requestTime)}
-            </Text>
-          </View>
-          {item.status === 'APPROVED' && item.licenseExpiry && (
-            <View style={styles.bookMeta}>
-              <Ionicons name="calendar-outline" size={16} color={colors.primary} />
-              <Text style={[styles.bookMetaText, { color: colors.text }]}>
-                Hết hạn: {formatDate(item.licenseExpiry)}
-              </Text>
+    return (
+      <View style={[styles.bookCard, { backgroundColor: colors.card }]}>
+        <View style={styles.bookInfo}>
+          {item.coverImage ? (
+            <Image 
+              source={{ uri: item.coverImage }} 
+              style={styles.coverImage}
+              resizeMode="cover"
+              onError={() => console.warn('Failed to load cover image')}
+            />
+          ) : (
+            <View style={[styles.coverImage, styles.placeholderImage]}>
+              <Ionicons name="book-outline" size={40} color={colors.primary} />
             </View>
           )}
+          <View style={styles.detailsContainer}>
+            <Text style={[styles.bookTitle, { color: colors.text }]}>
+              {item.documentName}
+            </Text>
+            <View style={styles.metaContainer}>
+              <View style={styles.bookMeta}>
+                <Ionicons name="person-outline" size={16} color={colors.primary} />
+                <Text style={[styles.bookMetaText, { color: colors.text }]}>
+                  {item.author}
+                </Text>
+              </View>
+              <View style={styles.bookMeta}>
+                <Ionicons name="business-outline" size={16} color={colors.primary} />
+                <Text style={[styles.bookMetaText, { color: colors.text }]}>
+                  {item.publisher}
+                </Text>
+              </View>
+            </View>
+            <Text style={[styles.description, { color: colors.text }]} numberOfLines={2}>
+              {item.description}
+            </Text>
+          </View>
         </View>
-      </View>
-      {item.status === 'APPROVED' && (
-        <TouchableOpacity 
-          style={[styles.readButton, { backgroundColor: colors.primary }]}
-          onPress={() => onReadBook?.(item.uploadId.toString())}
-        >
-          <Text style={styles.readButtonText}>Đọc ngay</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
 
-  if (loading && page === 0) {
+        {hasUploads ? (
+          <View style={styles.uploadsContainer}>
+            <View style={styles.uploadsHeader}>
+              <Ionicons name="documents-outline" size={20} color={colors.primary} />
+              <Text style={[styles.uploadsTitle, { color: colors.text }]}>
+                Tài liệu ({item.uploads.length})
+              </Text>
+            </View>
+            <View style={styles.uploadsList}>
+              {item.uploads.map((upload, index) => (
+                <TouchableOpacity 
+                  key={`${upload.uploadId}-${index}`}
+                  style={[
+                    styles.documentButton, 
+                    { backgroundColor: colors.card, borderColor: colors.primary },
+                    loadingReadId === upload.uploadId && styles.documentButtonDisabled
+                  ]}
+                  onPress={() => handleReadBook(upload.uploadId)}
+                  disabled={loadingReadId === upload.uploadId}
+                >
+                  <View style={styles.documentButtonContent}>
+                    <View style={styles.documentInfo}>
+                      <Ionicons 
+                        name={upload.fileType?.includes('pdf') ? 'document-text-outline' : 'document-outline'} 
+                        size={24} 
+                        color={colors.primary} 
+                      />
+                      <View style={styles.documentDetails}>
+                        <Text style={[styles.documentName, { color: colors.text }]}>
+                          {upload.fileName || `Tài liệu ${index + 1}`}
+                        </Text>
+                        <Text style={[styles.documentType, { color: colors.text }]}>
+                          {upload.fileType || 'Không xác định'}
+                        </Text>
+                      </View>
+                    </View>
+                    {loadingReadId === upload.uploadId ? (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                      <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ) : (
+          <View style={[styles.noDocumentsContainer, { backgroundColor: colors.card }]}>
+            <Ionicons name="alert-circle-outline" size={24} color={colors.text} />
+            <Text style={[styles.noDocumentsText, { color: colors.text }]}>
+              Không có tài liệu
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={48} color={colors.primary} />
+        <Text style={[styles.errorText, { color: colors.text }]}>{error}</Text>
+        <TouchableOpacity 
+          style={[styles.retryButton, { backgroundColor: colors.primary }]}
+          onPress={fetchDigitalBooks}
+        >
+          <Text style={styles.retryButtonText}>Thử lại</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -149,21 +198,14 @@ export default function DigitalBooks({ onReadBook, onLoadingChange }: DigitalBoo
       <FlatList
         data={digitalBooks}
         renderItem={renderItem}
-        keyExtractor={item => item.id.toString()}
+        keyExtractor={(item, index) => `${item.digitalDocumentId}-${item.uploads[0]?.uploadId || 'no-upload'}-${index}`}
         contentContainerStyle={styles.contentContainer}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
         refreshing={refreshing}
         onRefresh={onRefresh}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>Bạn chưa mượn sách điện tử nào</Text>
           </View>
-        }
-        ListFooterComponent={
-          loading && page > 0 ? (
-            <ActivityIndicator style={styles.footerLoader} color={colors.primary} />
-          ) : null
         }
       />
     </View>
@@ -179,6 +221,26 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginVertical: 16,
+  },
+  retryButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontWeight: '500',
   },
   header: {
     padding: 16,
@@ -206,22 +268,31 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   bookInfo: {
+    flexDirection: 'row',
     marginBottom: 12,
   },
-  titleRow: {
-    flexDirection: 'row',
+  coverImage: {
+    width: 100,
+    height: 150,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  placeholderImage: {
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
+  },
+  detailsContainer: {
+    flex: 1,
   },
   bookTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    flex: 1,
-    marginRight: 8,
+    marginBottom: 8,
   },
   metaContainer: {
     gap: 4,
+    marginBottom: 8,
   },
   bookMeta: {
     flexDirection: 'row',
@@ -231,28 +302,68 @@ const styles = StyleSheet.create({
   bookMetaText: {
     fontSize: 14,
   },
-  readButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
+  description: {
+    fontSize: 14,
+    opacity: 0.8,
   },
-  readButtonText: {
-    color: 'white',
-    fontWeight: '500',
+  uploadsContainer: {
+    gap: 12,
   },
-  badge: {
+  uploadsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
+    gap: 8,
   },
-  badgeText: {
-    color: '#fff',
-    fontSize: 12,
+  uploadsTitle: {
+    fontSize: 16,
     fontWeight: '600',
+  },
+  uploadsList: {
+    gap: 8,
+  },
+  documentButton: {
+    borderRadius: 8,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  documentButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+  },
+  documentButtonDisabled: {
+    opacity: 0.7,
+  },
+  documentInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  documentDetails: {
+    flex: 1,
+  },
+  documentName: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  documentType: {
+    fontSize: 12,
+    opacity: 0.7,
+  },
+  noDocumentsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    opacity: 0.7,
+  },
+  noDocumentsText: {
+    fontSize: 14,
   },
   emptyContainer: {
     flex: 1,
@@ -264,8 +375,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
-  },
-  footerLoader: {
-    paddingVertical: 20,
   },
 }); 

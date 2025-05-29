@@ -2,9 +2,13 @@ import { getApiUrl } from '../config/api.config';
 import api from '../config/axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as RSA from 'react-native-rsa-native';
-import { NativeModules } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 
 const { DRMCrypto } = NativeModules;
+
+if (!DRMCrypto) {
+  console.error('DRMCrypto native module is not available');
+}
 
 const SALT_LENGTH = 16;
 const IV_LENGTH = 12;
@@ -265,8 +269,18 @@ class DRMService {
 
   async decryptContent(encryptedContent: ArrayBuffer, contentKey: string): Promise<ArrayBuffer> {
     try {
+      if (!DRMCrypto) {
+        throw new Error('DRMCrypto native module is not available');
+      }
+
       const base64Content = this.arrayBufferToBase64(encryptedContent);
+      console.log('Decrypting content with DRMCrypto...');
+      console.log('Content length:', base64Content.length);
+      console.log('Content key length:', contentKey.length);
+      
       const decryptedBase64 = await DRMCrypto.decryptContent(base64Content, contentKey);
+      console.log('Decryption successful');
+      
       return this.base64ToArrayBuffer(decryptedBase64);
     } catch (error) {
       console.error('Decryption error:', error);

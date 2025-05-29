@@ -1,36 +1,33 @@
 import api from '../config/axios';
 import { getApiUrl } from '../config/api.config';
 
-export interface AccessRequest {
-  id: number;
-  uploadId: number;
-  documentName: string | null;
-  requesterId: string;
-  ownerId: string;
-  status: string;
-  requestTime: string;
-  decisionTime: string | null;
-  reviewerId: string | null;
-  licenseExpiry: string | null;
+export interface DigitalDocument {
+  digitalDocumentId: number;
+  documentName: string;
+  author: string;
+  publisher: string;
+  description: string;
+  coverImage: string | null;
+  visibilityStatus: string;
+  uploads: {
+    uploadId: number;
+    fileName: string;
+    fileType: string;
+    filePath: string;
+    uploadedAt: string;
+  }[];
 }
 
 export interface ApiResponse {
   code: number;
   success: boolean;
   message: string;
-  data: {
-    content: AccessRequest[];
-    pageNumber: number;
-    pageSize: number;
-    totalElements: number;
-    totalPages: number;
-    last: boolean;
-  };
+  data: DigitalDocument[];
 }
 
 export const digitalService = {
-  getUserDigitalBooks: async (userId: string, page: number = 0) => {
-    const response = await api.get<ApiResponse>(getApiUrl(`/api/v1/access-requests/user?userId=${userId}&page=${page}`));
+  getUserDigitalBooks: async () => {
+    const response = await api.get<ApiResponse>(getApiUrl('/api/v1/digital-documents/user/access'));
     return response.data;
   },
 };  
