@@ -1,8 +1,15 @@
 import { getApiUrl } from '../config/api.config';
 import api from '../config/axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Crypto from 'expo-crypto';
 import * as RSA from 'react-native-rsa-native';
+import { NativeModules } from 'react-native';
+
+const { DRMCrypto } = NativeModules;
+
+const SALT_LENGTH = 16;
+const IV_LENGTH = 12;
+const PBKDF2_ITERATIONS = 10000;
+const AES_KEY_LENGTH = 256;
 
 interface LicenseResponse {
   code: number;
@@ -52,15 +59,28 @@ class DRMService {
     return btoa(binary);
   }
 
+  private base64ToArrayBuffer(base64: string): ArrayBuffer {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+  }
+
   private async generateRSAKeys(): Promise<{
     publicKey: string;
     privateKey: string;
     privateKeyRaw: string;
   }> {
     try {
-      // Sử dụng react-native-rsa-native để tạo cặp khóa
+      console.log('Generating new RSA keys...');
       const keys = await RSA.RSA.generateKeys(2048);
-      
+      console.log('Generated keys:', {
+        publicKeyLength: keys.public.length,
+        privateKeyLength: keys.private.length
+      });   
       return {
         publicKey: keys.public,
         privateKey: keys.private,
@@ -78,11 +98,19 @@ class DRMService {
     privateKeyRaw: string;
   }> {
     try {
-      // Check if keys exist in storage
+      console.log('Initializing secure environment...');
       const storedPrivateKey = await AsyncStorage.getItem(KEY_STORAGE.PRIVATE_KEY);
       const storedPublicKey = await AsyncStorage.getItem(KEY_STORAGE.PUBLIC_KEY);
+        
+      console.log('Stored keys found:', {
+        hasPrivateKey: !!storedPrivateKey,
+        hasPublicKey: !!storedPublicKey,
+        privateKeyLength: storedPrivateKey?.length,
+        publicKeyLength: storedPublicKey?.length
+      });
 
       if (storedPrivateKey && storedPublicKey) {
+        console.log('Using existing keys from storage');
         this.privateKey = storedPrivateKey;
         this.publicKey = storedPublicKey;
         return {
@@ -92,16 +120,17 @@ class DRMService {
         };
       }
 
-      // Generate new RSA key pair
+      console.log('No existing keys found, generating new keys...');
       const keys = await this.generateRSAKeys();
       
-      // Store keys
+      console.log('Saving new keys to storage...');
       await AsyncStorage.setItem(KEY_STORAGE.PRIVATE_KEY, keys.privateKey);
       await AsyncStorage.setItem(KEY_STORAGE.PUBLIC_KEY, keys.publicKey);
 
       this.privateKey = keys.privateKey;
       this.publicKey = keys.publicKey;
 
+      console.log('Secure environment initialized successfully');
       return {
         publicKey: keys.publicKey,
         privateKey: keys.privateKey,
@@ -119,7 +148,7 @@ class DRMService {
     }
 
     const response = await api.post<LicenseResponse>(
-      getApiUrl(`/api/v1/drm/license`),
+      getApiUrl(`/api/v1/drm/license/android`),
       {
         publicKey: this.publicKey,
         uploadId: bookId,
@@ -132,29 +161,23 @@ class DRMService {
 
   async decryptContentKey(encryptedContentKey: string): Promise<Uint8Array> {
     if (!this.privateKey) {
+      console.error('Private key not initialized');
       throw new Error('Private key not initialized');
     }
 
     try {
-      // Sử dụng react-native-rsa-native để giải mã
-      const decrypted = await RSA.RSA.decrypt(encryptedContentKey, this.privateKey);
+      console.log('Decrypting content key...');
+      console.log('Encrypted content key length:', encryptedContentKey.length);
       
-      // Chuyển đổi string thành Uint8Array
+      const decrypted = await RSA.RSA.decrypt(encryptedContentKey, this.privateKey);
+      console.log('Decryption successful');
+      
       const encoder = new TextEncoder();
       return encoder.encode(decrypted);
     } catch (error) {
       console.error('Failed to decrypt content key:', error);
       throw error;
     }
-  }
-
-  private base64ToArrayBuffer(base64: string): ArrayBuffer {
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes.buffer;
   }
 
   async fetchEncryptedContent(uploadId: string, sessionToken: string): Promise<ContentResponse> {
@@ -177,47 +200,76 @@ class DRMService {
     };
   }
 
-  async decryptContent(
-    encryptedContent: ArrayBuffer,
-    contentKey: ArrayBuffer
-  ): Promise<Uint8Array> {
+  async createBlobUrl(content: Uint8Array, contentType: string): Promise<string> {
+    const base64 = this.arrayBufferToBase64(content.buffer as ArrayBuffer);
+    return `data:${contentType};base64,${base64}`;
+  }
+
+  async encryptForPublicKey(plaintext: string, base64PublicKey: string): Promise<string> {
     try {
-      // Convert ArrayBuffer to string (UUID)
-      const decoder = new TextDecoder();
-      const keyString = decoder.decode(contentKey);
-      console.log('Content key (UUID):', keyString);
+      console.log('Encrypting with public key...');
+      console.log('Plaintext length:', plaintext.length);
+      console.log('Public key length:', base64PublicKey.length);
+      
+      const encrypted = await RSA.RSA.encrypt(plaintext, base64PublicKey);
+      console.log('Encryption successful');
+      console.log('Encrypted data length:', encrypted.length);
+      
+      return encrypted;
+    } catch (error) {
+      console.error('Failed to encrypt with public key:', error);
+      throw error;
+    }
+  }
 
-      // Extract salt, IV and ciphertext from encrypted content
-      const salt = new Uint8Array(encryptedContent.slice(0, 16));
-      const iv = new Uint8Array(encryptedContent.slice(16, 28));
-      const ciphertext = encryptedContent.slice(28);
+  private async decryptChunk(chunk: string, privateKey: string): Promise<string> {
+    try {
+      return await RSA.RSA.decrypt(chunk, privateKey);
+    } catch (error) {
+      console.error('Failed to decrypt chunk:', error);
+      throw error;
+    }
+  }
 
-      // Use expo-crypto for decryption
-      const decrypted = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        keyString + iv.toString()
+  async decryptWithPrivateKey(encryptedData: string): Promise<string> {
+    try {
+      if (!this.privateKey) {
+        console.log('Private key not initialized');
+        return "";
+      }
+
+      console.log('Decrypting with private key...');
+      console.log('Encrypted data length:', encryptedData.length);
+
+      const chunkSize = 256;
+      const chunks: string[] = [];
+      
+      for (let i = 0; i < encryptedData.length; i += chunkSize) {
+        chunks.push(encryptedData.slice(i, i + chunkSize));
+      }
+
+      console.log('Number of chunks:', chunks.length);
+
+      const decryptedChunks = await Promise.all(
+        chunks.map(chunk => this.decryptChunk(chunk, this.privateKey!))
       );
 
-      const encoder = new TextEncoder();
-      return encoder.encode(decrypted);
+      const decrypted = decryptedChunks.join('');
+      console.log('Decryption successful', decrypted);
+      return decrypted;
     } catch (error) {
       console.error('Decryption error:', error);
       throw error;
     }
   }
 
-  async createBlobUrl(content: Uint8Array, contentType: string): Promise<string> {
-    const blob = new Blob([content], { type: contentType });
-    return URL.createObjectURL(blob);
-  }
-
-  async encryptForPublicKey(plaintext: string, base64PublicKey: string): Promise<string> {
+  async decryptContent(encryptedContent: ArrayBuffer, contentKey: string): Promise<ArrayBuffer> {
     try {
-      // Sử dụng react-native-rsa-native để mã hóa
-      const encrypted = await RSA.RSA.encrypt(plaintext, base64PublicKey);
-      return encrypted;
+      const base64Content = this.arrayBufferToBase64(encryptedContent);
+      const decryptedBase64 = await DRMCrypto.decryptContent(base64Content, contentKey);
+      return this.base64ToArrayBuffer(decryptedBase64);
     } catch (error) {
-      console.error('Failed to encrypt with public key:', error);
+      console.error('Decryption error:', error);
       throw error;
     }
   }

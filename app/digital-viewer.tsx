@@ -8,10 +8,12 @@ import WebView from 'react-native-webview';
 import { drmService } from '../services/book/drm.service';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import * as IntentLauncher from 'expo-intent-launcher';
+// import * as IntentLauncher from 'expo-intent-launcher';
+import Pdf from 'react-native-pdf';
+// import DocViewer from 'react-native-doc-viewer';
 
-const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
-  const bytes = new Uint8Array(buffer);
+const arrayBufferToBase64 = (buffer: ArrayBuffer | Uint8Array): string => {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
   let binary = '';
   for (let i = 0; i < bytes.byteLength; i++) {
     binary += String.fromCharCode(bytes[i]);
@@ -61,44 +63,6 @@ interface LicenseResponse {
   };
 }
 
-async function deriveAesKey(contentKey: string, salt: ArrayBuffer | Uint8Array): Promise<CryptoKey> {
-  const enc = new TextEncoder();
-  const keyMaterial = await window.crypto.subtle.importKey(
-    'raw',
-    enc.encode(contentKey),
-    { name: 'PBKDF2' },
-    false,
-    ['deriveKey']
-  );
-
-  const saltUint8 = new Uint8Array(salt as ArrayBuffer);
-
-  return await window.crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: saltUint8,
-      iterations: 10000,
-      hash: 'SHA-256',
-    },
-    keyMaterial,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['decrypt']
-  );
-}
-
-async function decryptContentBufferToBuffer(encryptedBuffer: ArrayBuffer, contentKey: string): Promise<ArrayBuffer> {
-  const salt = new Uint8Array(encryptedBuffer.slice(0, 16));
-  const iv = new Uint8Array(encryptedBuffer.slice(16, 28));
-  const ciphertext = encryptedBuffer.slice(28);
-
-  const aesKey = await deriveAesKey(contentKey, salt);
-  return await window.crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    aesKey,
-    ciphertext
-  );
-}
 
 export default function DigitalViewerScreen() {
   const { id } = useLocalSearchParams();
@@ -107,7 +71,7 @@ export default function DigitalViewerScreen() {
   const [keys, setKeys] = useState<{
     publicKey: string;
     privateKey: string;
-    privateKeyRaw: CryptoKey;
+    privateKeyRaw: string;
   } | null>(null);
   const [bookContentUrl, setBookContentUrl] = useState<string | null>(null);
   const [fileType, setFileType] = useState<string>('');
@@ -143,111 +107,88 @@ export default function DigitalViewerScreen() {
         const decoder = new TextDecoder();
         const keyString = decoder.decode(contentKey);
         console.log('Content Key (UUID):', keyString);
-        console.log('Content Key (base64):', arrayBufferToBase64(contentKey));
         
         // Fetch encrypted content
         const contentResponse = await drmService.fetchEncryptedContent(id as string, licenseResponse.data.sessionToken);
         console.log('Content Response Headers:', JSON.stringify(contentResponse.headers, null, 2));
-        console.log('Content Response Data Length:', contentResponse.data.byteLength);
+        
+        let contentType = contentResponse.headers['content-type'];
+        const encryptedContentBuffer = contentResponse.data;
+        
+        // Use drmService's decryptContent
+        const decryptedContentBuffer = await drmService.decryptContent(encryptedContentBuffer, keyString);
+        
+        // Debug: Check first few bytes of decrypted content
+        const fileBytes = new Uint8Array(decryptedContentBuffer);
+        console.log('First 10 bytes of decrypted file:', Array.from(fileBytes.slice(0, 10)).map(b => b.toString(16).padStart(2, '0')).join(' '));
         
         // Get file type from Content-Disposition header
-        const contentDisposition = contentResponse.headers['content-disposition'] || contentResponse.headers['Content-Disposition'];
+        const contentDisposition = contentResponse.headers['content-disposition'];
         console.log('Content-Disposition:', contentDisposition);
         
-        let contentType = contentResponse.headers['content-type'] || contentResponse.headers['Content-Type'];
-        console.log('Original Content-Type:', contentType);
-        
-        let fileType = '';
+        let detectedFileType = '';
         
         if (contentDisposition) {
             const match = contentDisposition.match(/filename="file\.(\w+)"/);
             if (match) {
-                fileType = match[1].toLowerCase();
-                console.log('File type from Content-Disposition:', fileType);
+                detectedFileType = match[1].toLowerCase();
+                console.log('File type from Content-Disposition:', detectedFileType);
                 
                 // Map file extension to MIME type
-                switch (fileType) {
+                switch (detectedFileType) {
                     case 'pdf':
                         contentType = 'application/pdf';
+                        setFileType('application/pdf');
                         console.log('✅ Setting content type to PDF');
                         break;
                     case 'docx':
                         contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                        setFileType('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
                         break;
                     case 'doc':
                         contentType = 'application/msword';
+                        setFileType('application/msword');
                         break;
                     default:
-                        console.error('❌ Unsupported file type:', fileType);
-                        throw new Error(`Unsupported file type: ${fileType}`);
+                        console.error('❌ Unsupported file type:', detectedFileType);
+                        throw new Error(`Unsupported file type: ${detectedFileType}`);
                 }
             }
-        } else {
-            console.log('No Content-Disposition header found, will try to detect from content');
         }
         
-        // Decrypt content first
-        try {
-            console.log('Starting decryption process...');
-            console.log('Content key length:', contentKey.byteLength);
-            console.log('Encrypted content length:', contentResponse.data.byteLength);
+        // Verify PDF header
+        if (contentType === 'application/pdf') {
+            const pdfHeader = new Uint8Array(decryptedContentBuffer.slice(0, 5));
+            const pdfHeaderStr = String.fromCharCode.apply(null, Array.from(pdfHeader));
+            console.log('PDF Header:', pdfHeaderStr);
             
-            const decryptedBuffer = await drmService.decryptContent(contentResponse.data, contentKey);
-            console.log('Decryption successful');
-            console.log('Decrypted Buffer Length:', decryptedBuffer.byteLength);
-            
-            // Verify decrypted content
-            const fileBytes = new Uint8Array(decryptedBuffer);
-            console.log('First 10 bytes of decrypted file:', Array.from(fileBytes.slice(0, 10)).map(b => b.toString(16).padStart(2, '0')).join(' '));
-            
-            // If no file type from Content-Disposition, try to detect from content
-            if (true) {
-                const isPDF = fileBytes[0] === 0x25 && fileBytes[1] === 0x50; // %P
-                const isWord = fileBytes[0] === 0x50 && fileBytes[1] === 0x4B; // PK
-                
-                if (1) {
-                    fileType = 'pdf';
-                    contentType = 'application/pdf';
-                    console.log('✅ PDF detected from content');
-                } else if (isWord) {
-                    fileType = 'docx';
-                    contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-                    console.log('✅ Word detected from content');
-                } else {
-                    console.error('❌ Unable to detect file type from content. First bytes:', 
-                        Array.from(fileBytes.slice(0, 4)).map(b => b.toString(16).padStart(2, '0')).join(' '));
-                    throw new Error('Unsupported file type');
-                }
+            if (pdfHeaderStr !== '%PDF-') {
+                console.error('Invalid PDF header:', pdfHeaderStr);
+                throw new Error('Invalid PDF format');
             }
-            
-            console.log('Final content type:', contentType);
-            
-            // Create blob URL and save to local file
-            const url = await drmService.createBlobUrl(decryptedBuffer, contentType);
-            console.log('Created blob URL:', url);
-            
-            setFileType(contentType);
-            setBookContentUrl(url);
-
-            // Save to local file for native viewing
-            if (Platform.OS === 'android') {
-              const fileName = `document_${Date.now()}.${fileType === 'application/pdf' ? 'pdf' : 'docx'}`;
-              const filePath = `${FileSystem.cacheDirectory}${fileName}`;
-              
-              // Convert ArrayBuffer to Base64
-              const base64 = arrayBufferToBase64(decryptedBuffer);
-              
-              // Write to file
-              await FileSystem.writeAsStringAsync(filePath, base64, {
-                encoding: FileSystem.EncodingType.Base64,
-              });
-              
-              setLocalFilePath(filePath);
-              console.log('File saved to:', filePath);
-            }
-        } catch (decryptError) {
-            console.error('Decryption Error Details:', decryptError);
-            throw decryptError;
+        }
+        
+        console.log('Final content type:', contentType);
+        
+        // Save to local file for native viewing
+        if (Platform.OS === 'android') {
+          const fileName = `document_${Date.now()}.${detectedFileType || 'pdf'}`;
+          const filePath = `${FileSystem.cacheDirectory}${fileName}`;
+          
+          // Convert ArrayBuffer to Base64
+          const base64 = arrayBufferToBase64(decryptedContentBuffer);
+          
+          // Write to file
+          await FileSystem.writeAsStringAsync(filePath, base64, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          
+          setLocalFilePath(filePath);
+          console.log('File saved to:', filePath);
+          
+          // Debug: Verify file exists and size
+          const fileInfo = await FileSystem.getInfoAsync(filePath);
+          console.log('File info:', fileInfo);
         }
       } catch (error) {
         console.error('❌ Error in document processing:', error);
@@ -292,6 +233,59 @@ export default function DigitalViewerScreen() {
     }
   };
 
+  const renderDocument = () => {
+    if (!localFilePath) return null;
+    console.log('File Type:', fileType);
+    
+    //if (fileType === 'application/pdf') 
+    if(1){
+      return (
+        <Pdf
+          source={{ uri: localFilePath }}
+          style={styles.pdf}
+          onLoadComplete={(numberOfPages, filePath) => {
+            console.log(`Number of pages: ${numberOfPages}`);
+          }}
+          onPageChanged={(page, numberOfPages) => {
+            console.log(`Current page: ${page}`);
+          }}
+          onError={(error) => {
+            console.log('PDF Error:', error);
+            setError('Failed to load PDF document');
+          }}
+        />
+      );
+    } else if (fileType.includes('word') || fileType.includes('doc')) {
+      // For Word documents, use the openDoc method
+      // DocViewer.openDoc([{
+      //   url: localFilePath,
+      //   fileName: `document_${Date.now()}.${fileType.includes('docx') ? 'docx' : 'doc'}`,
+      //   cache: true
+      // }], (error) => {
+      //   if (error) {
+      //     console.log('Document Error:', error);
+      //     setError('Failed to load document');
+      //   }
+      // });
+      
+      return (
+        <View style={styles.messageContainer}>
+          <Text style={[styles.messageText, { color: Colors[colorScheme].text }]}>
+            Opening document...
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.messageContainer}>
+        <Text style={[styles.messageText, { color: Colors[colorScheme].text }]}>
+          Unsupported file type
+        </Text>
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
@@ -311,34 +305,6 @@ export default function DigitalViewerScreen() {
     );
   }
 
-  if (Platform.OS === 'android' && localFilePath) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
-        <Stack.Screen 
-          options={{
-            title: 'Document Viewer',
-            headerStyle: {
-              backgroundColor: Colors[colorScheme].background,
-            },
-            headerTintColor: Colors[colorScheme].text,
-          }} 
-        />
-        <View style={styles.androidContainer}>
-          <Text style={[styles.androidText, { color: Colors[colorScheme].text }]}>
-            Document is ready to view
-          </Text>
-          <TouchableOpacity
-            style={[styles.openButton, { backgroundColor: Colors[colorScheme].tint }]}
-            onPress={openDocument}
-          >
-            <Text style={styles.openButtonText}>Open Document</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // For iOS and web, show a message that viewing is not supported
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
       <Stack.Screen 
@@ -350,10 +316,8 @@ export default function DigitalViewerScreen() {
           headerTintColor: Colors[colorScheme].text,
         }} 
       />
-      <View style={styles.messageContainer}>
-        <Text style={[styles.messageText, { color: Colors[colorScheme].text }]}>
-          Document viewing is currently only supported on Android devices.
-        </Text>
+      <View style={styles.documentContainer}>
+        {renderDocument()}
       </View>
     </SafeAreaView>
   );
@@ -363,22 +327,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  controls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  controlButton: {
-    padding: 8,
-    borderRadius: 8,
-  },
-  webview: {
+  documentContainer: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  pdf: {
+    flex: 1,
+    width: Dimensions.get('window').width,
+    backgroundColor: '#f5f5f5',
+  },
+  docViewer: {
+    flex: 1,
+    width: Dimensions.get('window').width,
   },
   loadingContainer: {
     flex: 1,
@@ -393,27 +353,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     margin: 16,
-  },
-  androidContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  androidText: {
-    fontSize: 16,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  openButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  openButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   messageContainer: {
     flex: 1,

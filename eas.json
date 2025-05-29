@@ -12,7 +12,8 @@
         "env": {
           "EXPO_USE_NATIVE_MODULES": "1"
         },
-        "image": "latest"
+        "image": "latest",
+        "withoutCredentials": true
       }
     },
     "preview": {
