@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@react-navigation/native';
 import { useAuth } from '@/hooks/useAuth';
 import { digitalService, DigitalDocument } from '@/services/loan/digital.service';
+import { useRouter } from 'expo-router';
 
 interface DigitalBooksProps {
   onReadBook?: (uploadId: number) => void;
@@ -13,18 +14,30 @@ interface DigitalBooksProps {
 export default function DigitalBooks({ onReadBook, onLoadingChange }: DigitalBooksProps) {
   const { colors } = useTheme();
   const { userInfo } = useAuth();
+  const router = useRouter();
   const [digitalBooks, setDigitalBooks] = useState<DigitalDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingReadId, setLoadingReadId] = useState<number | null>(null);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
 
-  const fetchDigitalBooks = async () => {
+  const fetchDigitalBooks = async (pageNumber: number = 0, shouldRefresh: boolean = false) => {
     try {
       if (!userInfo.userId) return;
       setError(null);
       const response = await digitalService.getUserDigitalBooks();
-      setDigitalBooks(response.data);
+      const newBooks = response.data.content;
+      
+      if (shouldRefresh) {
+        setDigitalBooks(newBooks);
+      } else {
+        setDigitalBooks(prev => [...prev, ...newBooks]);
+      }
+      
+      setHasMore(!response.data.last);
+      setPage(pageNumber);
     } catch (error) {
       console.error('Error fetching digital books:', error);
       setError('Không thể tải danh sách sách điện tử. Vui lòng thử lại sau.');
@@ -37,19 +50,43 @@ export default function DigitalBooks({ onReadBook, onLoadingChange }: DigitalBoo
   useEffect(() => {
     setLoading(true);
     onLoadingChange?.(true);
-    fetchDigitalBooks();
+    fetchDigitalBooks(0, true);
   }, [userInfo.userId]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchDigitalBooks();
+    await fetchDigitalBooks(0, true);
     setRefreshing(false);
+  };
+
+  const loadMore = () => {
+    if (!loading && hasMore) {
+      fetchDigitalBooks(page + 1);
+    }
   };
 
   const handleReadBook = async (uploadId: number) => {
     try {
       setLoadingReadId(uploadId);
-      await onReadBook?.(uploadId);
+      const book = digitalBooks.find(book => 
+        book.uploads.some(upload => upload.uploadId === uploadId)
+      );
+      
+      if (book) {
+        const upload = book.uploads.find(u => u.uploadId === uploadId);
+        if (upload) {
+          router.push({
+            pathname: '/reader',
+            params: { 
+              id: upload.uploadId,
+              fileName: upload.fileName,
+              filePath: upload.filePath,
+              documentName: book.documentName,
+              author: book.author
+            }
+          });
+        }
+      }
     } catch (error) {
       console.error('Error reading book:', error);
     } finally {
@@ -139,9 +176,6 @@ export default function DigitalBooks({ onReadBook, onLoadingChange }: DigitalBoo
                         <Text style={[styles.documentName, { color: colors.text }]}>
                           {upload.fileName || `Tài liệu ${index + 1}`}
                         </Text>
-                        <Text style={[styles.documentType, { color: colors.text }]}>
-                          {upload.fileType || 'Không xác định'}
-                        </Text>
                       </View>
                     </View>
                     {loadingReadId === upload.uploadId ? (
@@ -162,6 +196,18 @@ export default function DigitalBooks({ onReadBook, onLoadingChange }: DigitalBoo
             </Text>
           </View>
         )}
+      </View>
+    );
+  };
+
+  const renderFooter = () => {
+    if (!hasMore) return null;
+    return (
+      <View style={styles.loadingMoreContainer}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={[styles.loadingMoreText, { color: colors.text }]}>
+          Đang tải thêm tài liệu...
+        </Text>
       </View>
     );
   };
@@ -202,6 +248,9 @@ export default function DigitalBooks({ onReadBook, onLoadingChange }: DigitalBoo
         contentContainerStyle={styles.contentContainer}
         refreshing={refreshing}
         onRefresh={onRefresh}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={renderFooter}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>Bạn chưa mượn sách điện tử nào</Text>
@@ -349,10 +398,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 2,
   },
-  documentType: {
-    fontSize: 12,
-    opacity: 0.7,
-  },
   noDocumentsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -375,5 +420,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+  },
+  loadingMoreContainer: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  loadingMoreText: {
+    fontSize: 14,
+    opacity: 0.7,
   },
 }); 

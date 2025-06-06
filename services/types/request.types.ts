@@ -1,13 +1,15 @@
 export interface UpdateProfileRequest {
-  fullName?: string;
-  email?: string;
-  phone?: string;
-  avatar?: string;
+  firstName: string;
+  lastName: string;
+  dob: string;
+  phoneNumber: string;
+  address: string;
+  studentBatch: number;
+  majorCode: string;
 }
 
 export interface GetBooksRequest {
   page?: number;
-  limit?: number;
-  category?: string;
+  size?: number;
   search?: string;
 } 

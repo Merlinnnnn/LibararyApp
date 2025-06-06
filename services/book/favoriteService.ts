@@ -40,6 +40,16 @@ class FavoriteService {
       throw error;
     }
   }
+
+  async unfavorite(documentId: number): Promise<ApiResponse<void>> {
+    try {
+      const response = await api.delete(`${getApiUrl(`/api/v1/documents/${documentId}/favorite`)}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error removing favorite:', error);
+      throw error;
+    }
+  }
 }
 
 export const favoriteService = new FavoriteService(); 

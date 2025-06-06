@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.quyhuynh.MyNewApp"
+      "bundleIdentifier": "com.quyhuynh.MyNewApp",
+      "infoPlist": {
+        "UIScreenCaptureEnabled": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -39,7 +42,9 @@
             "DEFAULT"
           ]
         }
-      ]
+      ],
+      "screenCaptureEnabled": false,
+      "buildType": "apk"
     },
     "web": {
       "bundler": "metro",
@@ -56,7 +61,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

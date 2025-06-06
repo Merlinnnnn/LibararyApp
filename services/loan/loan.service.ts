@@ -101,8 +101,8 @@ class LoanService {
 
   async getUserBorrowedBooks(userId: string, page: number = 0, size: number = 10): Promise<PageDTO<LoanResponse>> {
     try {
-      const response = await api.get(getApiUrl('/api/v1/loans/user/borrowed-books'), {
-        params: { userId, page, size }
+      const response = await api.get(getApiUrl('/api/v1/loans/borrowed-or-unpaid'), {
+        params: { page, size }
       });
       return response.data.data;
     } catch (error: any) {

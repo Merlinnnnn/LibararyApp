@@ -9,6 +9,7 @@ import { documentService } from '../../services/book/document.service';
 import { Document, DocumentType, DocumentCategory, DocumentFilterParams } from '../../services/types/book.types';
 import { useRouter } from 'expo-router';
 import { favoriteService } from '../../services/book/favoriteService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Map document types to icons
 const documentTypeIcons: Record<string, string> = {
@@ -127,9 +128,11 @@ export default function SearchScreen() {
         }
         setTotalPages(response.totalPages);
         setCurrentPage(response.number);
+        return response;
       } catch (error) {
         console.error('Search error:', error);
         setError('Có lỗi xảy ra khi tìm kiếm. Vui lòng thử lại.');
+        throw error;
       } finally {
         setIsLoading(false);
       }
@@ -211,7 +214,7 @@ export default function SearchScreen() {
                 if (response.success) {
                   Alert.alert(
                     'Thành công',
-                    'Mượn sách thành công!',
+                    response.message || 'Mượn sách thành công!',
                     [
                       {
                         text: 'OK',
@@ -226,16 +229,23 @@ export default function SearchScreen() {
                   );
                 } else {
                   Alert.alert(
-                    'Lỗi',
+                    'Thông báo',
                     response.message || 'Không thể mượn sách. Vui lòng thử lại.'
                   );
                 }
-              } catch (error) {
-                console.error('Error borrowing book:', error);
-                Alert.alert(
-                  'Lỗi',
-                  'Không thể mượn sách. Vui lòng thử lại.'
-                );
+              } catch (error: any) {
+                if (error.response?.data) {
+                  const { message, code } = error.response.data;
+                  Alert.alert(
+                    'Thông báo',
+                    message || 'Đã xảy ra lỗi khi mượn sách. Vui lòng thử lại.'
+                  );
+                } else {
+                  Alert.alert(
+                    'Lỗi',
+                    'Đã xảy ra lỗi khi mượn sách. Vui lòng thử lại.'
+                  );
+                }
               }
             }
           }
@@ -264,7 +274,7 @@ export default function SearchScreen() {
                 if (response.success) {
                   Alert.alert(
                     'Thành công',
-                    'Mượn sách điện tử thành công!',
+                    response.message || 'Mượn sách điện tử thành công!',
                     [
                       {
                         text: 'OK',
@@ -287,16 +297,23 @@ export default function SearchScreen() {
                   );
                 } else {
                   Alert.alert(
-                    'Lỗi',
+                    'Thông báo',
                     response.message || 'Không thể mượn sách điện tử. Vui lòng thử lại.'
                   );
                 }
-              } catch (error) {
-                console.error('Error borrowing digital book:', error);
-                Alert.alert(
-                  'Lỗi',
-                  'Không thể mượn sách điện tử. Vui lòng thử lại.'
-                );
+              } catch (error: any) {
+                if (error.response?.data) {
+                  const { message, code } = error.response.data;
+                  Alert.alert(
+                    'Thông báo',
+                    message || 'Đã xảy ra lỗi khi mượn sách điện tử. Vui lòng thử lại.'
+                  );
+                } else {
+                  Alert.alert(
+                    'Lỗi',
+                    'Đã xảy ra lỗi khi mượn sách điện tử. Vui lòng thử lại.'
+                  );
+                }
               }
             }
           }
@@ -336,7 +353,7 @@ export default function SearchScreen() {
                       if (response.success) {
                         Alert.alert(
                           'Thành công',
-                          'Mượn sách thành công!',
+                          response.message || 'Mượn sách thành công!',
                           [
                             {
                               text: 'OK',
@@ -351,16 +368,23 @@ export default function SearchScreen() {
                         );
                       } else {
                         Alert.alert(
-                          'Lỗi',
+                          'Thông báo',
                           response.message || 'Không thể mượn sách. Vui lòng thử lại.'
                         );
                       }
-                    } catch (error) {
-                      console.error('Error borrowing book:', error);
-                      Alert.alert(
-                        'Lỗi',
-                        'Không thể mượn sách. Vui lòng thử lại.'
-                      );
+                    } catch (error: any) {
+                      if (error.response?.data) {
+                        const { message, code } = error.response.data;
+                        Alert.alert(
+                          'Thông báo',
+                          message || 'Đã xảy ra lỗi khi mượn sách. Vui lòng thử lại.'
+                        );
+                      } else {
+                        Alert.alert(
+                          'Lỗi',
+                          'Đã xảy ra lỗi khi mượn sách. Vui lòng thử lại.'
+                        );
+                      }
                     }
                   }
                 }
@@ -390,7 +414,7 @@ export default function SearchScreen() {
                       if (response.success) {
                         Alert.alert(
                           'Thành công',
-                          'Mượn sách điện tử thành công!',
+                          response.message || 'Mượn sách điện tử thành công!',
                           [
                             {
                               text: 'OK',
@@ -413,16 +437,23 @@ export default function SearchScreen() {
                         );
                       } else {
                         Alert.alert(
-                          'Lỗi',
+                          'Thông báo',
                           response.message || 'Không thể mượn sách điện tử. Vui lòng thử lại.'
                         );
                       }
-                    } catch (error) {
-                      console.error('Error borrowing digital book:', error);
-                      Alert.alert(
-                        'Lỗi',
-                        'Không thể mượn sách điện tử. Vui lòng thử lại.'
-                      );
+                    } catch (error: any) {
+                      if (error.response?.data) {
+                        const { message, code } = error.response.data;
+                        Alert.alert(
+                          'Thông báo',
+                          message || 'Đã xảy ra lỗi khi mượn sách điện tử. Vui lòng thử lại.'
+                        );
+                      } else {
+                        Alert.alert(
+                          'Lỗi',
+                          'Đã xảy ra lỗi khi mượn sách điện tử. Vui lòng thử lại.'
+                        );
+                      }
                     }
                   }
                 }
@@ -445,12 +476,17 @@ export default function SearchScreen() {
   };
 
   const handleSearchFocus = () => {
-    if (isFirstFocus) {
+    if (isFirstFocus && !searchResults.length) {
       setIsFirstFocus(false);
       setIsInitialLoading(true);
-      debouncedSearch('', selectedType, 0).finally(() => {
-        setIsInitialLoading(false);
-      });
+      debouncedSearch?.('', selectedType, 0)
+        ?.then(() => {
+          setIsInitialLoading(false);
+        })
+        ?.catch((error) => {
+          console.error('Error in initial search:', error);
+          setIsInitialLoading(false);
+        });
     }
   };
 
@@ -458,6 +494,7 @@ export default function SearchScreen() {
     setRefreshing(true);
     setError(null);
     try {
+      console.log('Starting refresh with query:', searchQuery);
       const [typesResponse, searchResponse] = await Promise.all([
         documentService.getDocumentTypes(),
         documentService.filterDocuments({
@@ -467,10 +504,11 @@ export default function SearchScreen() {
           sortBy: 'documentId',
           sortDirection: 'desc',
           documentCategory: DocumentCategory.BOTH,
-          documentTypeIds: selectedType ? [documentTypes.find(t => t.typeName === selectedType)?.documentTypeId].filter(Boolean) : undefined
+          documentTypeIds: selectedType ? [documentTypes.find(t => t.typeName === selectedType)?.documentTypeId].filter(Boolean) as number[] : undefined
         })
       ]);
       
+      console.log('Refresh response:', searchResponse);
       setDocumentTypes(typesResponse);
       setSearchResults(searchResponse.content);
       setTotalPages(searchResponse.totalPages);
@@ -484,21 +522,40 @@ export default function SearchScreen() {
   };
 
   const handleToggleFavorite = async (documentId: number) => {
-    // Update UI immediately
-    setFavorites(prev => {
-      const newFavorites = new Set(prev);
-      if (newFavorites.has(documentId)) {
-        newFavorites.delete(documentId);
-      } else {
-        newFavorites.add(documentId);
-      }
-      return newFavorites;
-    });
-
-    // Call API in background
     try {
-      await favoriteService.toggleFavorite(documentId);
-    } catch (error) {
+      // Update UI immediately
+      setFavorites(prev => {
+        const newFavorites = new Set(prev);
+        if (newFavorites.has(documentId)) {
+          newFavorites.delete(documentId);
+        } else {
+          newFavorites.add(documentId);
+        }
+        return newFavorites;
+      });
+
+      // Call API in background
+      const response = favorites.has(documentId) 
+        ? await favoriteService.unfavorite(documentId)
+        : await favoriteService.toggleFavorite(documentId);
+      
+      if (!response.success) {
+        // Revert UI if API fails
+        setFavorites(prev => {
+          const newFavorites = new Set(prev);
+          if (newFavorites.has(documentId)) {
+            newFavorites.delete(documentId);
+          } else {
+            newFavorites.add(documentId);
+          }
+          return newFavorites;
+        });
+        Alert.alert(
+          'Thông báo',
+          response.message || 'Không thể thực hiện thao tác này. Vui lòng thử lại.'
+        );
+      }
+    } catch (error: any) {
       console.error('Error toggling favorite:', error);
       // Revert UI if API fails
       setFavorites(prev => {
@@ -510,6 +567,12 @@ export default function SearchScreen() {
         }
         return newFavorites;
       });
+      
+      // Show error message
+      Alert.alert(
+        'Thông báo',
+        error.response?.data?.message || 'Đã xảy ra lỗi. Vui lòng thử lại.'
+      );
     }
   };
 

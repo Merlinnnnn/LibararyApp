@@ -35,8 +35,7 @@ const UserBorrowedBooks = ({ onLoadingChange }: UserBorrowedBooksProps) => {
 
   const fetchBorrowedBooks = async (pageNum: number = 0) => {
     try {
-      if (!userInfo.userId) return;
-      const response = await loanService.getUserBorrowedBooks(userInfo.userId, pageNum);
+      const response = await loanService.getUserBorrowedBooks('', pageNum);
       if (pageNum === 0) {
         setBorrowedBooks(response.content);
       } else {
@@ -53,8 +52,7 @@ const UserBorrowedBooks = ({ onLoadingChange }: UserBorrowedBooksProps) => {
   useEffect(() => {
     setLoading(true);
     fetchBorrowedBooks();
-  
-  }, [userInfo.userId]);
+  }, []);
 
   const loadMore = () => {
     if (!loading && hasMore) {
@@ -176,6 +174,18 @@ const UserBorrowedBooks = ({ onLoadingChange }: UserBorrowedBooksProps) => {
     setRefreshing(false);
   };
 
+  const renderFooter = () => {
+    if (!hasMore) return null;
+    return (
+      <View style={styles.loadingMoreContainer}>
+        <ActivityIndicator size="small" color="#2196F3" />
+        <Text style={styles.loadingMoreText}>
+          Đang tải thêm sách...
+        </Text>
+      </View>
+    );
+  };
+
   if (loading && page === 0) {
     return (
       <View style={styles.loadingContainer}>
@@ -197,11 +207,7 @@ const UserBorrowedBooks = ({ onLoadingChange }: UserBorrowedBooksProps) => {
             <Text style={styles.emptyText}>Bạn chưa mượn sách nào</Text>
           </View>
         }
-        ListFooterComponent={
-          loading && page > 0 ? (
-            <ActivityIndicator style={styles.footerLoader} color="#2196F3" />
-          ) : null
-        }
+        ListFooterComponent={renderFooter}
         refreshing={refreshing}
         onRefresh={onRefresh}
       />
@@ -343,6 +349,18 @@ const styles = StyleSheet.create({
   },
   footerLoader: {
     paddingVertical: 20,
+  },
+  loadingMoreContainer: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  loadingMoreText: {
+    fontSize: 14,
+    color: '#666',
+    opacity: 0.7,
   },
 });
 

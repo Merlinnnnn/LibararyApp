@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { jwtDecode } from 'jwt-decode';
 import { authService } from '@/services/auth/auth.service';
 import { LoginRequest } from '@/services/types/auth.types';
+import { drmService } from '@/services/book/drm.service';
 
 // Interface cho payload của JWT
 interface JwtPayload {
@@ -24,6 +25,15 @@ interface UserInfo {
   roles: string[];
 }
 
+interface LicenseCache {
+  uploadId: string;
+  license: {
+    token: string;
+    sessionToken: string;
+    expiresAt: number;
+  };
+}
+
 export const useAuth = () => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -35,6 +45,7 @@ export const useAuth = () => {
     fullName: '',
     roles: []
   });
+  const [licenseCache, setLicenseCache] = useState<Map<string, LicenseCache>>(new Map());
   const router = useRouter();
 
   // Kiểm tra trạng thái đăng nhập khi app khởi động
@@ -222,6 +233,69 @@ export const useAuth = () => {
     }
   };
 
+  const getCachedLicense = (uploadId: string): LicenseCache | null => {
+    const cached = licenseCache.get(uploadId);
+    if (!cached) return null;
+    
+    // Check if license is expired
+    if (cached.license.expiresAt < Date.now()) {
+      licenseCache.delete(uploadId);
+      return null;
+    }
+    
+    return cached;
+  };
+
+  const setCachedLicense = (uploadId: string, license: LicenseCache) => {
+    // Check if license is already expired before caching
+    if (license.license.expiresAt < Date.now()) {
+      return;
+    }
+    setLicenseCache(prev => new Map(prev).set(uploadId, license));
+  };
+
+  // Hàm kiểm tra license thông qua heartbeat
+  const checkLicenseValidity = async (uploadId: string): Promise<boolean> => {
+    try {
+      const license = getCachedLicense(uploadId);
+      if (!license) return false;
+
+      // Gửi heartbeat request
+      const response = await drmService.updateHeartbeat(license.license.sessionToken);
+      
+      if (response.success) {
+        return true;
+      }
+      
+      // Nếu heartbeat thất bại, xóa license
+      licenseCache.delete(uploadId);
+      return false;
+    } catch (error: any) {
+      console.error('Error checking license validity:', error);
+      // Nếu có lỗi hoặc license bị thu hồi, xóa license
+      if (error?.message?.includes('License has been revoked')) {
+        licenseCache.delete(uploadId);
+      }
+      return false;
+    }
+  };
+
+  // Hàm lấy license với kiểm tra heartbeat
+  const getValidLicense = async (uploadId: string): Promise<LicenseCache | null> => {
+    const license = getCachedLicense(uploadId);
+    if (!license) return null;
+
+    // Kiểm tra tính hợp lệ của license
+    const isValid = await checkLicenseValidity(uploadId);
+    if (!isValid) return null;
+
+    return license;
+  };
+
+  const clearLicenseCache = () => {
+    setLicenseCache(new Map());
+  };
+
   return {
     isLoggedIn,
     isLoading,
@@ -231,5 +305,9 @@ export const useAuth = () => {
     forgotPassword,
     resetPassword,
     logout,
+    getCachedLicense,
+    getValidLicense,
+    setCachedLicense,
+    clearLicenseCache,
   };
 };

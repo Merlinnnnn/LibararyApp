@@ -28,15 +28,15 @@ export interface UserDetail {
   dob: string | null;
   phoneNumber: string;
   address: string;
-  avatar?: string | null;
-  registrationDate: string;
+  registrationDate: string | null;
   expirationDate: string | null;
   currentBorrowedCount: number;
   maxBorrowLimit: number;
   roles: string[];
   studentBatch: number;
+  majorCode: string | null;
   isActive: string;
-  lockedAt: string | null;
+  lockReason: string | null;
 }
 
 export interface BorrowedBook {

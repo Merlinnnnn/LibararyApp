@@ -14,9 +14,9 @@ export const userService = {
   getProfile: () =>
     api.get<User>('/user/profile'),
 
-  // Cập nhật thông tin user cũ (có thể refactor sau)
-  updateProfile: (data: UpdateProfileRequest) =>
-    api.put<User>('/user/profile', data),
+  // Cập nhật thông tin user
+  updateProfile: (userId: string, data: UpdateProfileRequest) =>
+    api.put<APIResponse<UserDetail>>(`/api/v1/users/${userId}`, data),
 
   // Lấy danh sách sách đã mượn
   getBorrowedBooks: () =>
