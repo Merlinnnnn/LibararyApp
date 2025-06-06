@@ -1,1 +1,3 @@
 adb uninstall com.quyhuynh.MyNewApp && npx expo run:android
+
+cd android && gradlew.bat clean && gradlew.bat assembleRelease

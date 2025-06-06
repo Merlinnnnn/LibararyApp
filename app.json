@@ -1,26 +1,26 @@
 {
   "expo": {
-    "name": "MyNewApp",
-    "slug": "MyNewApp",
+    "name": "Modern Library",
+    "slug": "modern-library",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "mynewapp",
+    "icon": "./assets/images/logo.png",
+    "scheme": "modern-library",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.quyhuynh.MyNewApp",
+      "bundleIdentifier": "com.quyhuynh.modernlibrary",
       "infoPlist": {
         "UIScreenCaptureEnabled": false
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/logo.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.quyhuynh.MyNewApp",
+      "package": "com.quyhuynh.modernlibrary",
       "versionCode": 1,
       "permissions": [
         "READ_EXTERNAL_STORAGE",
@@ -28,6 +28,9 @@
       ],
       "allowBackup": true,
       "softwareKeyboardLayoutMode": "pan",
+      "networkSecurityConfig": {
+        "cleartextTrafficPermitted": true
+      },
       "intentFilters": [
         {
           "action": "VIEW",
@@ -56,7 +59,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"

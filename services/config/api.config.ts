@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: 'http://ruoucuuvanlautamviet.click',
+  BASE_URL: 'http://api-modernlibrary.click',
   API_VERSION: 'v1',
   TIMEOUT: 10000, // 10 seconds
   HEADERS: {

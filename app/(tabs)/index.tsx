@@ -273,12 +273,12 @@ export default function HomeScreen() {
           <View style={styles.headerTop}>
             <View style={styles.headerLeft}>
               <Image 
-                source={require('../../assets/images/react-logo.png')} 
+                source={require('../../assets/images/logo.png')} 
                 style={styles.logo}
                 resizeMode="contain"
               />
               <Text style={[styles.appName, { color: Colors[colorScheme].text }]}>
-                LibraSys
+                Modern Library
               </Text>
             </View>
             <View style={styles.headerRight}>
@@ -348,7 +348,7 @@ export default function HomeScreen() {
               </Text>
               <TouchableOpacity 
                 style={[styles.libraryInfoButton, { backgroundColor: Colors[colorScheme].tint }]}
-                onPress={() => router.push('/digital-viewer')}
+                onPress={() => router.push('/loan')}
               >
                 <Text style={styles.libraryInfoButtonText}>Truy cập ngay</Text>
                 <FontAwesome name="arrow-right" size={14} color="#FFFFFF" />
