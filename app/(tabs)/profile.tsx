@@ -69,13 +69,13 @@ export default function ProfileScreen() {
       id: 5,
       title: 'Cài đặt',
       icon: 'cog',
-      action: () => {},
+      action: () => router.push('/settings'),
     },
     {
       id: 6,
       title: 'Trợ giúp',
       icon: 'question-circle',
-      action: () => {},
+      action: () => router.push('/help'),
     },
   ];
 

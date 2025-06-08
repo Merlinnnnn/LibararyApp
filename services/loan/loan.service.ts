@@ -162,6 +162,15 @@ class LoanService {
     }
   }
 
+  async processVNPayPayment(loanId: number): Promise<{ redirectUrl: string }> {
+    try {
+      const response = await api.get(getApiUrl(`/api/v1/vnpay/submitOrder/${loanId}`));
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
   static async getLoanDetail(loanId: number): Promise<LoanResponse> {
     try {
       const response = await api.get(getApiUrl(`/api/v1/loan/${loanId}`));

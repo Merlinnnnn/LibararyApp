@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image, Modal, Linking, RefreshControl } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { loanService, LoanResponse, LoanStatus, ReturnCondition } from '@/services/loan/loan.service';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -57,6 +57,7 @@ export default function LoanDetailScreen() {
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [loadingQR, setLoadingQR] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchLoanDetail = useCallback(async () => {
     try {
@@ -72,13 +73,15 @@ export default function LoanDetailScreen() {
     }
   }, [id]);
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchLoanDetail();
+    setRefreshing(false);
+  }, [fetchLoanDetail]);
+
   useEffect(() => {
     fetchLoanDetail();
   }, [fetchLoanDetail]);
-
-  const handleRefresh = () => {
-    fetchLoanDetail();
-  };
 
   const handleGetQRCode = async () => {
     try {
@@ -113,9 +116,15 @@ export default function LoanDetailScreen() {
   const handlePayment = async () => {
     try {
       setLoading(true);
-      await loanService.processCashPayment(loan!.transactionId);
-      await fetchLoanDetail();
-      Alert.alert('Thành công', 'Thanh toán thành công.');
+      console.log(loan?.transactionId);
+      const response = await loanService.processVNPayPayment(loan!.transactionId);
+      console.log(response);
+      if (response && response.redirectUrl) {
+        // Open the VNPay payment URL in browser
+        Linking.openURL(response.redirectUrl);
+      } else {
+        Alert.alert('Lỗi', 'Không thể tạo đơn thanh toán. Vui lòng thử lại sau.');
+      }
     } catch (error: any) {
       Alert.alert('Lỗi', 'Không thể xử lý thanh toán. Vui lòng thử lại sau.');
     } finally {
@@ -138,7 +147,7 @@ export default function LoanDetailScreen() {
           <Ionicons name="alert-circle-outline" size={48} color="#F44336" />
         </View>
         <Text style={styles.errorText}>{error || 'Không tìm thấy thông tin mượn sách'}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchLoanDetail}>
           <Text style={styles.retryButtonText}>Thử lại</Text>
         </TouchableOpacity>
       </View>
@@ -151,7 +160,17 @@ export default function LoanDetailScreen() {
     : 0;
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={['#2196F3']}
+          tintColor="#2196F3"
+        />
+      }
+    >
       <View style={styles.section}>
         <Text style={styles.title}>{loan.documentName}</Text>
         <Text style={styles.subTitle}>

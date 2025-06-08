@@ -8,13 +8,13 @@ import 'react-native-reanimated';
 import { useAuth } from '../hooks/useAuth';
 import { setRouter } from '../services/navigationService';
 import { useRouter } from 'expo-router';
-
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { useColorScheme } from 'react-native';
+import { Colors } from '../constants/Colors';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const colorScheme = useColorScheme() || 'light';
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
@@ -38,27 +38,93 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        {/* Màn hình Login */}
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        
-        {/* Màn hình Quên mật khẩu */}
-        <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
-
-        {/* Màn hình Đăng ký */}
-        <Stack.Screen name="register" options={{ headerShown: false }} />
-        
-        {/* Giao diện chính */}
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-
-        {/* Màn hình lỗi 404 */}
-        <Stack.Screen name="+not-found" />
-        <Stack.Screen name="user-info" options={{ headerShown: false }} />
-        {/* Màn hình chi tiết khoản vay */}
+      <Stack
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: Colors[colorScheme].background,
+          },
+          headerTintColor: Colors[colorScheme].text,
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+          headerShadowVisible: false,
+          headerBackTitle: 'Quay lại',
+          headerTitleAlign: 'center',
+          headerShown: false,
+        }}
+      >
         <Stack.Screen
-          name="loan/[id]"
+          name="(tabs)"
           options={{
-            title: 'Loan Details',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="settings"
+          options={{
+            title: 'Cài đặt',
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen
+          name="help"
+          options={{
+            title: 'Trợ giúp',
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen
+          name="user-info"
+          options={{
+            title: 'Thông tin cá nhân',
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen
+          name="access-history"
+          options={{
+            title: 'Lịch sử mượn sách',
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen
+          name="favorites"
+          options={{
+            title: 'Yêu thích',
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen
+          name="uploaded-documents"
+          options={{
+            title: 'Tài liệu đã tải lên',
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen
+          name="login"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="register"
+          options={{
+            title: 'Đăng ký',
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen
+          name="forgot-password"
+          options={{
+            title: 'Quên mật khẩu',
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen
+          name="change-password"
+          options={{
+            title: 'Đổi mật khẩu',
             headerShown: true,
           }}
         />
