@@ -134,7 +134,7 @@ export default function AccessHistoryScreen() {
               <TouchableOpacity 
                 key={request.id} 
                 style={[styles.requestCard, { backgroundColor: colorScheme === 'dark' ? '#333' : '#fff' }]}
-                onPress={() => router.push(`/book/${request.documentId}`)}
+                onPress={() => router.push({ pathname: '/loan/[id]', params: { id: request.id } })}
               >
                 <Image 
                   source={{ uri: request.coverImage }} 
@@ -237,7 +237,7 @@ export default function AccessHistoryScreen() {
             <TouchableOpacity 
               key={book.transactionId} 
               style={[styles.requestCard, { backgroundColor: colorScheme === 'dark' ? '#333' : '#fff' }]}
-              onPress={() => router.push(`/book/${book.documentId}`)}
+              onPress={() => router.push({ pathname: '/loan/[id]', params: { id: book.transactionId } })}
             >
               <View style={styles.requestInfo}>
                 <View style={styles.requestHeader}>

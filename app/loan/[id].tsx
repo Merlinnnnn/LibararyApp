@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image, Modal, Linking, RefreshControl } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { loanService, LoanResponse, LoanStatus, ReturnCondition } from '@/services/loan/loan.service';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { formatDate } from '@/utils/format';
+import { useColorScheme } from 'react-native';
+import { Colors } from '@/constants/Colors';
 
 const getStatusBadge = (status: LoanStatus) => {
   switch (status) {
@@ -51,6 +53,7 @@ const getStatusBadge = (status: LoanStatus) => {
 export default function LoanDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const colorScheme = useColorScheme() || 'light';
   const [loan, setLoan] = useState<LoanResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -160,232 +163,246 @@ export default function LoanDetailScreen() {
     : 0;
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={['#2196F3']}
-          tintColor="#2196F3"
-        />
-      }
-    >
-      <View style={styles.section}>
-        <Text style={styles.title}>{loan.documentName}</Text>
-        <Text style={styles.subTitle}>
-          <Text>Mã sách: </Text>
-          <Text>{loan.documentId}</Text>
-        </Text>
-        <View style={styles.statusContainer}>
-          {getStatusBadge(loan.status)}
-          {isOverdue && (
-            <View style={[styles.badge, { backgroundColor: '#F44336' }]}>
-              <View>
-                <Ionicons name="alert-circle" size={14} color="#fff" />
+    <>
+      <Stack.Screen 
+        options={{
+          title: 'Chi tiết mượn sách',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+          headerStyle: {
+            backgroundColor: Colors[colorScheme].background,
+          },
+          headerTintColor: Colors[colorScheme].text,
+          headerShadowVisible: false,
+        }} 
+      />
+      <ScrollView 
+        style={styles.container}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#2196F3']}
+            tintColor="#2196F3"
+          />
+        }
+      >
+        <View style={styles.section}>
+          <Text style={styles.title}>{loan.documentName}</Text>
+          <Text style={styles.subTitle}>
+            <Text>Mã sách: </Text>
+            <Text>{loan.documentId}</Text>
+          </Text>
+          <View style={styles.statusContainer}>
+            {getStatusBadge(loan.status)}
+            {isOverdue && (
+              <View style={[styles.badge, { backgroundColor: '#F44336' }]}>
+                <View>
+                  <Ionicons name="alert-circle" size={14} color="#fff" />
+                </View>
+                <Text style={styles.badgeText}>
+                  <Text>Quá hạn </Text>
+                  <Text>{daysOverdue}</Text>
+                  <Text> ngày</Text>
+                </Text>
               </View>
-              <Text style={styles.badgeText}>
-                <Text>Quá hạn </Text>
-                <Text>{daysOverdue}</Text>
-                <Text> ngày</Text>
+            )}
+          </View>
+          {(loan.status === LoanStatus.BORROWED || loan.status === LoanStatus.RESERVED) && (
+            <TouchableOpacity 
+              style={styles.qrButton}
+              onPress={handleGetQRCode}
+              disabled={loadingQR}
+            >
+              {loadingQR ? (
+                <ActivityIndicator size="small" color="#2196F3" />
+              ) : (
+                <>
+                  <View>
+                    <Ionicons name="qr-code-outline" size={20} color="#2196F3" />
+                  </View>
+                  <Text style={styles.qrButtonText}>
+                    {loan.status === LoanStatus.BORROWED ? 'Xem mã QR trả sách' : 'Xem mã QR nhận sách'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Thông tin mượn</Text>
+          <View style={styles.infoRow}>
+            <View>
+              <Ionicons name="calendar-outline" size={18} color="#757575" />
+            </View>
+            <Text style={styles.label}>Ngày mượn:</Text>
+            <Text style={styles.value}>{formatDate(loan.loanDate)}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <View>
+              <MaterialIcons name="event-available" size={18} color="#757575" />
+            </View>
+            <Text style={styles.label}>Hạn trả:</Text>
+            <Text style={[styles.value, isOverdue && styles.overdue]}>{formatDate(loan.dueDate)}</Text>
+          </View>
+          {loan.returnDate && (
+            <View style={styles.infoRow}>
+              <View>
+                <Ionicons name="checkmark-done" size={18} color="#4CAF50" />
+              </View>
+              <Text style={styles.label}>Ngày trả:</Text>
+              <Text style={styles.value}>{formatDate(loan.returnDate)}</Text>
+            </View>
+          )}
+          {loan.returnCondition && (
+            <View style={styles.infoRow}>
+              <View>
+                <Ionicons name="alert-circle-outline" size={18} color="#F44336" />
+              </View>
+              <Text style={styles.label}>Tình trạng trả:</Text>
+              <Text style={[styles.value, { color: '#F44336' }]}>
+                {loan.returnCondition === ReturnCondition.DAMAGED ? 'Bị hư hỏng' :
+                 loan.returnCondition === ReturnCondition.OVERDUE ? 'Trả trễ' :
+                 'Bình thường'}
               </Text>
             </View>
           )}
         </View>
-        {(loan.status === LoanStatus.BORROWED || loan.status === LoanStatus.RESERVED) && (
-          <TouchableOpacity 
-            style={styles.qrButton}
-            onPress={handleGetQRCode}
-            disabled={loadingQR}
-          >
-            {loadingQR ? (
-              <ActivityIndicator size="small" color="#2196F3" />
-            ) : (
-              <>
-                <View>
-                  <Ionicons name="qr-code-outline" size={20} color="#2196F3" />
-                </View>
-                <Text style={styles.qrButtonText}>
-                  {loan.status === LoanStatus.BORROWED ? 'Xem mã QR trả sách' : 'Xem mã QR nhận sách'}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
-      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Thông tin mượn</Text>
-        <View style={styles.infoRow}>
-          <View>
-            <Ionicons name="calendar-outline" size={18} color="#757575" />
-          </View>
-          <Text style={styles.label}>Ngày mượn:</Text>
-          <Text style={styles.value}>{formatDate(loan.loanDate)}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <View>
-            <MaterialIcons name="event-available" size={18} color="#757575" />
-          </View>
-          <Text style={styles.label}>Hạn trả:</Text>
-          <Text style={[styles.value, isOverdue && styles.overdue]}>{formatDate(loan.dueDate)}</Text>
-        </View>
-        {loan.returnDate && (
-          <View style={styles.infoRow}>
-            <View>
-              <Ionicons name="checkmark-done" size={18} color="#4CAF50" />
-            </View>
-            <Text style={styles.label}>Ngày trả:</Text>
-            <Text style={styles.value}>{formatDate(loan.returnDate)}</Text>
-          </View>
-        )}
-        {loan.returnCondition && (
-          <View style={styles.infoRow}>
-            <View>
-              <Ionicons name="alert-circle-outline" size={18} color="#F44336" />
-            </View>
-            <Text style={styles.label}>Tình trạng trả:</Text>
-            <Text style={[styles.value, { color: '#F44336' }]}>
-              {loan.returnCondition === ReturnCondition.DAMAGED ? 'Bị hư hỏng' :
-               loan.returnCondition === ReturnCondition.OVERDUE ? 'Trả trễ' :
-               'Bình thường'}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Thông tin khác</Text>
-        <View style={styles.infoRow}>
-          <View>
-            <Ionicons name="person-outline" size={18} color="#757575" />
-          </View>
-          <Text style={styles.label}>Người mượn:</Text>
-          <Text style={styles.value}>{loan.username}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <View>
-            <Ionicons name="person" size={18} color="#757575" />
-          </View>
-          <Text style={styles.label}>Thủ thư:</Text>
-          <Text style={styles.value}>{loan.librarianName || '--'}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <View>
-            <Ionicons name="book-outline" size={18} color="#757575" />
-          </View>
-          <Text style={styles.label}>Mã sách:</Text>
-          <Text style={styles.value}>{loan.documentId}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <View>
-            <Ionicons name="document-text-outline" size={18} color="#757575" />
-          </View>
-          <Text style={styles.label}>Tên sách:</Text>
-          <Text style={styles.value}>{loan.documentName}</Text>
-        </View>
-      </View>
-
-      {loan.paymentStatus !== 'NON_PAYMENT' && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Thông tin phạt</Text>
+          <Text style={styles.sectionTitle}>Thông tin khác</Text>
           <View style={styles.infoRow}>
             <View>
-              <Ionicons name="cash-outline" size={18} color="#E65100" />
+              <Ionicons name="person-outline" size={18} color="#757575" />
             </View>
-            <Text style={styles.label}>Phí phạt:</Text>
-            <Text style={styles.fineText}>
-              <Text>{loan.fineAmount?.toLocaleString('vi-VN')}</Text>
-              <Text> VNĐ</Text>
-            </Text>
+            <Text style={styles.label}>Người mượn:</Text>
+            <Text style={styles.value}>{loan.username}</Text>
           </View>
           <View style={styles.infoRow}>
             <View>
-              <Ionicons name="card-outline" size={18} color="#757575" />
+              <Ionicons name="person" size={18} color="#757575" />
             </View>
-            <Text style={styles.label}>Trạng thái:</Text>
-            <Text style={[styles.value, loan.paymentStatus === 'UNPAID' ? styles.unpaid : styles.paid]}>
-              {loan.paymentStatus === 'UNPAID' ? 'Chưa thanh toán' : 'Đã thanh toán'}
-            </Text>
+            <Text style={styles.label}>Thủ thư:</Text>
+            <Text style={styles.value}>{loan.librarianName || '--'}</Text>
           </View>
-          {loan.paidAt && (
+          <View style={styles.infoRow}>
+            <View>
+              <Ionicons name="book-outline" size={18} color="#757575" />
+            </View>
+            <Text style={styles.label}>Mã sách:</Text>
+            <Text style={styles.value}>{loan.documentId}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <View>
+              <Ionicons name="document-text-outline" size={18} color="#757575" />
+            </View>
+            <Text style={styles.label}>Tên sách:</Text>
+            <Text style={styles.value}>{loan.documentName}</Text>
+          </View>
+        </View>
+
+        {loan.paymentStatus !== 'NON_PAYMENT' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Thông tin phạt</Text>
             <View style={styles.infoRow}>
               <View>
-                <Ionicons name="time-outline" size={18} color="#4CAF50" />
+                <Ionicons name="cash-outline" size={18} color="#E65100" />
               </View>
-              <Text style={styles.label}>Ngày thanh toán:</Text>
-              <Text style={styles.value}>{formatDate(loan.paidAt)}</Text>
+              <Text style={styles.label}>Phí phạt:</Text>
+              <Text style={styles.fineText}>
+                <Text>{loan.fineAmount?.toLocaleString('vi-VN')}</Text>
+                <Text> VNĐ</Text>
+              </Text>
             </View>
+            <View style={styles.infoRow}>
+              <View>
+                <Ionicons name="card-outline" size={18} color="#757575" />
+              </View>
+              <Text style={styles.label}>Trạng thái:</Text>
+              <Text style={[styles.value, loan.paymentStatus === 'UNPAID' ? styles.unpaid : styles.paid]}>
+                {loan.paymentStatus === 'UNPAID' ? 'Chưa thanh toán' : 'Đã thanh toán'}
+              </Text>
+            </View>
+            {loan.paidAt && (
+              <View style={styles.infoRow}>
+                <View>
+                  <Ionicons name="time-outline" size={18} color="#4CAF50" />
+                </View>
+                <Text style={styles.label}>Ngày thanh toán:</Text>
+                <Text style={styles.value}>{formatDate(loan.paidAt)}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Action Buttons */}
+        <View style={styles.actionSection}>
+          {(loan.status === LoanStatus.BORROWED || loan.status === LoanStatus.RESERVED) && (
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: '#F44336' }]} 
+              onPress={handleReturnDamaged}
+            >
+              <View>
+                <Ionicons name="warning-outline" size={24} color="#fff" />
+              </View>
+              <Text style={styles.actionButtonText}>Báo hư hỏng</Text>
+            </TouchableOpacity>
+          )}
+          {loan.paymentStatus !== 'NON_PAYMENT' && loan.paymentStatus === 'UNPAID' && (
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: '#4CAF50' }]} 
+              onPress={handlePayment}
+            >
+              <View>
+                <Ionicons name="cash-outline" size={24} color="#fff" />
+              </View>
+              <Text style={styles.actionButtonText}>Thanh toán</Text>
+            </TouchableOpacity>
           )}
         </View>
-      )}
 
-      {/* Action Buttons */}
-      <View style={styles.actionSection}>
-        {(loan.status === LoanStatus.BORROWED || loan.status === LoanStatus.RESERVED) && (
-          <TouchableOpacity 
-            style={[styles.actionButton, { backgroundColor: '#F44336' }]} 
-            onPress={handleReturnDamaged}
-          >
-            <View>
-              <Ionicons name="warning-outline" size={24} color="#fff" />
+        {/* QR Code Modal */}
+        <Modal
+          visible={showQRModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => {
+            setShowQRModal(false);
+            setQrCodeUrl(null);
+          }}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>
+                {loan.status === LoanStatus.BORROWED ? 'Mã QR trả sách' : 'Mã QR nhận sách'}
+              </Text>
+              {loadingQR ? (
+                <ActivityIndicator size="large" color="#2196F3" />
+              ) : qrCodeUrl ? (
+                <Image 
+                  source={{ uri: qrCodeUrl }} 
+                  style={styles.qrCode}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Text style={styles.errorText}>Không thể tải mã QR</Text>
+              )}
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => {
+                  setShowQRModal(false);
+                  setQrCodeUrl(null);
+                }}
+              >
+                <Text style={styles.closeButtonText}>Đóng</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.actionButtonText}>Báo hư hỏng</Text>
-          </TouchableOpacity>
-        )}
-        {loan.paymentStatus !== 'NON_PAYMENT' && loan.paymentStatus === 'UNPAID' && (
-          <TouchableOpacity 
-            style={[styles.actionButton, { backgroundColor: '#4CAF50' }]} 
-            onPress={handlePayment}
-          >
-            <View>
-              <Ionicons name="cash-outline" size={24} color="#fff" />
-            </View>
-            <Text style={styles.actionButtonText}>Thanh toán</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* QR Code Modal */}
-      <Modal
-        visible={showQRModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => {
-          setShowQRModal(false);
-          setQrCodeUrl(null);
-        }}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {loan.status === LoanStatus.BORROWED ? 'Mã QR trả sách' : 'Mã QR nhận sách'}
-            </Text>
-            {loadingQR ? (
-              <ActivityIndicator size="large" color="#2196F3" />
-            ) : qrCodeUrl ? (
-              <Image 
-                source={{ uri: qrCodeUrl }} 
-                style={styles.qrCode}
-                resizeMode="contain"
-              />
-            ) : (
-              <Text style={styles.errorText}>Không thể tải mã QR</Text>
-            )}
-            <TouchableOpacity 
-              style={styles.closeButton}
-              onPress={() => {
-                setShowQRModal(false);
-                setQrCodeUrl(null);
-              }}
-            >
-              <Text style={styles.closeButtonText}>Đóng</Text>
-            </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
-    </ScrollView>
-
+        </Modal>
+      </ScrollView>
+    </>
   );
 }
 
@@ -393,7 +410,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-    padding: 0,
+    padding: 0
   },
   loadingContainer: {
     flex: 1,
