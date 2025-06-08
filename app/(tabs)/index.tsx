@@ -26,7 +26,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
-  const isWideScreen = screenWidth > 600; // Show 2 cards if screen width > 600px
+  const isWideScreen = screenWidth > 600;
   const [sections, setSections] = useState<BookSection[]>([
     {
       title: 'Sách chương trình học kỳ này',
@@ -58,6 +58,7 @@ export default function HomeScreen() {
   }, []);
 
   const fetchStats = async () => {
+    if (!userInfo?.userId) return;
     try {
       const response = await documentService.getUserDocumentStats(userInfo.userId);
       if (response.success && response.data) {
@@ -86,8 +87,10 @@ export default function HomeScreen() {
 
   useEffect(() => {
     fetchBooks();
-    fetchStats();
-  }, []);
+    if (userInfo?.userId) {
+      fetchStats();
+    }
+  }, [userInfo?.userId]);
 
   useEffect(() => {
     const fetchUnreadCount = async () => {
@@ -309,29 +312,31 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: Colors[colorScheme].background }]}>
-            <FontAwesome name="book" size={24} color={Colors[colorScheme].tint} />
-            <Text style={[styles.statNumber, { color: Colors[colorScheme].text }]}>
-              {stats.borrowedCurr}
-            </Text>
-            <Text style={[styles.statLabel, { color: Colors[colorScheme].text }]}>Sách đang mượn</Text>
+        {userInfo?.userId && (
+          <View style={styles.statsContainer}>
+            <View style={[styles.statCard, { backgroundColor: Colors[colorScheme].background }]}>
+              <FontAwesome name="book" size={24} color={Colors[colorScheme].tint} />
+              <Text style={[styles.statNumber, { color: Colors[colorScheme].text }]}>
+                {stats.borrowedCurr}
+              </Text>
+              <Text style={[styles.statLabel, { color: Colors[colorScheme].text }]}>Sách đang mượn</Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: Colors[colorScheme].background }]}>
+              <FontAwesome name="history" size={24} color={Colors[colorScheme].tint} />
+              <Text style={[styles.statNumber, { color: Colors[colorScheme].text }]}>
+                {stats.borrowedTotal}
+              </Text>
+              <Text style={[styles.statLabel, { color: Colors[colorScheme].text }]}>Sách đã mượn</Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: Colors[colorScheme].background }]}>
+              <FontAwesome name="heart" size={24} color={Colors[colorScheme].tint} />
+              <Text style={[styles.statNumber, { color: Colors[colorScheme].text }]}>
+                {stats.favorTotal}
+              </Text>
+              <Text style={[styles.statLabel, { color: Colors[colorScheme].text }]}>Sách yêu thích</Text>
+            </View>
           </View>
-          <View style={[styles.statCard, { backgroundColor: Colors[colorScheme].background }]}>
-            <FontAwesome name="history" size={24} color={Colors[colorScheme].tint} />
-            <Text style={[styles.statNumber, { color: Colors[colorScheme].text }]}>
-              {stats.borrowedTotal}
-            </Text>
-            <Text style={[styles.statLabel, { color: Colors[colorScheme].text }]}>Sách đã mượn</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: Colors[colorScheme].background }]}>
-            <FontAwesome name="heart" size={24} color={Colors[colorScheme].tint} />
-            <Text style={[styles.statNumber, { color: Colors[colorScheme].text }]}>
-              {stats.favorTotal}
-            </Text>
-            <Text style={[styles.statLabel, { color: Colors[colorScheme].text }]}>Sách yêu thích</Text>
-          </View>
-        </View>
+        )}
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>
@@ -364,9 +369,7 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>
               {section.title}
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.newBooksContainer}>
-              {renderBookList(section.books, section.loading, section.emptyMessage)}
-            </ScrollView>
+            {renderBookList(section.books, section.loading, section.emptyMessage)}
           </View>
         ))}
       </ScrollView>
@@ -508,13 +511,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  newBooksContainer: {
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
-  },
   booksContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
     paddingHorizontal: 16,
-    gap: 20,
   },
   booksContainerWide: {
     flexDirection: 'row',
@@ -522,6 +523,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   bookCard: {
+    width: '100%',
     borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -529,6 +531,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 5,
+    marginBottom: 16,
   },
   bookCardWide: {
     width: '48%',
