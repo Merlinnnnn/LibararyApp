@@ -10,6 +10,7 @@ import { getUnreadNotificationsCount } from '../../services/notification/notific
 import ChatbotModal from '../components/ChatbotModal';
 import { favoriteService } from '../../services/book/favoriteService';
 import { documentService } from '../../services/book/document.service';
+import { useAuth } from '../../hooks/useAuth';
 
 interface BookSection {
   title: string;
@@ -21,6 +22,7 @@ interface BookSection {
 export default function HomeScreen() {
   const colorScheme = useColorScheme() || 'light';
   const router = useRouter();
+  const { userInfo } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
@@ -57,7 +59,7 @@ export default function HomeScreen() {
 
   const fetchStats = async () => {
     try {
-      const response = await documentService.getUserDocumentStats();
+      const response = await documentService.getUserDocumentStats(userInfo.userId);
       if (response.success && response.data) {
         setStats(response.data);
       }

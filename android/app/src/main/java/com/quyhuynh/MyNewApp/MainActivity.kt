@@ -23,10 +23,10 @@ class MainActivity : ReactActivity() {
     // @generated end expo-splashscreen
     super.onCreate(null)
 
-    window.setFlags(
-        WindowManager.LayoutParams.FLAG_SECURE,
-        WindowManager.LayoutParams.FLAG_SECURE
-    )
+    //window.setFlags(
+    //    WindowManager.LayoutParams.FLAG_SECURE,
+    //    WindowManager.LayoutParams.FLAG_SECURE
+    //)
   }
 
   /**

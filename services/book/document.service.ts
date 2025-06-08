@@ -245,9 +245,9 @@ export const documentService = {
     }
   },
 
-  async getUserDocumentStats(): Promise<ApiResponse<UserDocumentStats>> {
+  async getUserDocumentStats(userId: string): Promise<ApiResponse<UserDocumentStats>> {
     try {
-      const response = await api.get<ApiResponse<UserDocumentStats>>(getApiUrl('/api/v1/documents/user/1fcb671e-e261-4ddd-b617-23d0fcf40bf5'));
+      const response = await api.get<ApiResponse<UserDocumentStats>>(getApiUrl(`/api/v1/documents/user/${userId}`));
       return response.data;
     } catch (error) {
       console.error('Error fetching user document stats:', error);
