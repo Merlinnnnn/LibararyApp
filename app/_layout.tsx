@@ -76,8 +76,7 @@ export default function RootLayout() {
         <Stack.Screen
           name="user-info"
           options={{
-            title: 'Thông tin cá nhân',
-            headerShown: true,
+            headerShown: false,
           }}
         />
         <Stack.Screen

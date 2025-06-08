@@ -143,16 +143,9 @@ export default function RegisterScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#1D3D47" />
-        </TouchableOpacity>
-
         <View style={styles.logoContainer}>
           <Image 
-            source={require('@/assets/images/partial-react-logo.png')}
+            source={require('@/assets/images/logo.png')}
             style={styles.logo}
             resizeMode="contain"
           />
@@ -257,16 +250,9 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 40,
   },
-  backButton: {
-    position: 'absolute',
-    top: 40,
-    left: 20,
-    zIndex: 1,
-    padding: 8,
-  },
   logoContainer: {
     alignItems: 'center',
-    marginTop: 40,
+    marginTop: 20,
     marginBottom: 20,
   },
   logo: {

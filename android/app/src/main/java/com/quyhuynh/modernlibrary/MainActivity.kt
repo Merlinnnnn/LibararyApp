@@ -42,7 +42,7 @@ class MainActivity : ReactActivity() {
   override fun createReactActivityDelegate(): ReactActivityDelegate {
     return ReactActivityDelegateWrapper(
           this,
-          BuildConfig.IS_NEW_ARCHITECTURE_ENABLED,
+          false, // Set to false for now since BuildConfig is not available
           object : DefaultReactActivityDelegate(
               this,
               mainComponentName,

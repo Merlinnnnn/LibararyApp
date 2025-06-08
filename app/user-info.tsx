@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    paddingTop: Platform.OS === 'ios' ? 60 : 16,
+    paddingTop: Platform.OS === 'ios' ? 80 : 40,
   },
   backButton: {
     padding: 8,
