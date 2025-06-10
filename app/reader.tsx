@@ -184,8 +184,8 @@ const DocumentViewer = () => {
 
         // Check for cached license and content
         const cachedLicense = await getCachedLicense(params.id as string);
+        console.log("cachedLicense:", cachedLicense)
         let licenseResponse;
-
         if (cachedLicense) {
           try {
             // Validate cached license with heartbeat
@@ -214,10 +214,11 @@ const DocumentViewer = () => {
             });
           }
         } else {
-          // No cached license, request new one
+          // No cached license, request new one 
           licenseResponse = await drmService.requestLicense(params.id as string);
+          console.log("licenseResponse:", licenseResponse)
           if (!isMounted) return;
-
+        
           // Cache the new license
           await setCachedLicense(params.id as string, {
             uploadId: params.id as string,

@@ -236,7 +236,6 @@ export const useAuth = () => {
   const getCachedLicense = (uploadId: string): LicenseCache | null => {
     const cached = licenseCache.get(uploadId);
     if (!cached) return null;
-    
     // Check if license is expired
     if (cached.license.expiresAt < Date.now()) {
       licenseCache.delete(uploadId);
@@ -283,11 +282,54 @@ export const useAuth = () => {
   // Hàm lấy license với kiểm tra heartbeat
   const getValidLicense = async (uploadId: string): Promise<LicenseCache | null> => {
     const license = getCachedLicense(uploadId);
-    if (!license) return null;
 
-    // Kiểm tra tính hợp lệ của license
+    if (!license) {
+      try {
+        // Request new license from API
+        const response = await drmService.requestLicense(uploadId);
+        if (response.success) {
+          const newLicense: LicenseCache = {
+            uploadId,
+            license: {
+              token: response.data.encryptedContentKey,
+              sessionToken: response.data.sessionToken,
+              expiresAt: Date.now() + (60 * 60 * 1000) // 1 hour expiration
+            }
+          };
+          // Cache the new license
+          setCachedLicense(uploadId, newLicense);
+          return newLicense;
+        }
+      } catch (error) {
+        console.error('Error requesting new license:', error);
+      }
+      return null;
+    }
+
+    // Check if existing license is valid
     const isValid = await checkLicenseValidity(uploadId);
-    if (!isValid) return null;
+    if (!isValid) {
+      try {
+        // Request new license if current one is invalid
+        const response = await drmService.requestLicense(uploadId);
+        if (response.success) {
+          const newLicense: LicenseCache = {
+            uploadId,
+            license: {
+              token: response.data.encryptedContentKey,
+              sessionToken: response.data.sessionToken,
+              expiresAt: Date.now() + (60 * 60 * 1000) // 1 hour expiration
+            }
+          };
+          // Cache the new license
+          setCachedLicense(uploadId, newLicense);
+          return newLicense;
+        }
+      } catch (error) {
+        console.error('Error requesting new license:', error);
+      }
+      return null;
+    }
 
     return license;
   };

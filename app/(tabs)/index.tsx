@@ -124,7 +124,7 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
-  const renderBookList = (books: Document[], loading: boolean, emptyMessage: string) => {
+  const renderBookList = (books: Document[], loading: boolean, emptyMessage: string, isHorizontal: boolean = false) => {
     if (loading) {
       return <Text style={[styles.loadingText, { color: Colors[colorScheme].text }]}>Đang tải...</Text>;
     }
@@ -133,15 +133,20 @@ export default function HomeScreen() {
       return <Text style={[styles.noBooksText, { color: Colors[colorScheme].text }]}>{emptyMessage}</Text>;
     }
 
-    return (
-      <View style={[styles.booksContainer, isWideScreen && styles.booksContainerWide]}>
+    const BookList = () => (
+      <View style={[
+        styles.booksContainer, 
+        isWideScreen && styles.booksContainerWide,
+        isHorizontal && styles.booksContainerHorizontal
+      ]}>
         {books.map((book) => (
           <TouchableOpacity
             key={book.documentId}
             style={[
               styles.bookCard, 
               { backgroundColor: Colors[colorScheme].background },
-              isWideScreen && styles.bookCardWide
+              isWideScreen && styles.bookCardWide,
+              isHorizontal && styles.bookCardHorizontal
             ]}
             onPress={() => router.push({
               pathname: '/book/[id]',
@@ -206,6 +211,20 @@ export default function HomeScreen() {
         ))}
       </View>
     );
+
+    if (isHorizontal) {
+      return (
+        <ScrollView 
+          horizontal={true}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.horizontalScrollContent}
+        >
+          <BookList />
+        </ScrollView>
+      );
+    }
+
+    return <BookList />;
   };
 
   const handleToggleFavorite = async (documentId: number) => {
@@ -369,7 +388,7 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>
               {section.title}
             </Text>
-            {renderBookList(section.books, section.loading, section.emptyMessage)}
+            {renderBookList(section.books, section.loading, section.emptyMessage, index === 0)}
           </View>
         ))}
       </ScrollView>
@@ -522,6 +541,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 16,
   },
+  booksContainerHorizontal: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    paddingHorizontal: 0,
+  },
   bookCard: {
     width: '100%',
     borderRadius: 16,
@@ -532,32 +556,41 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
   },
   bookCardWide: {
     width: '48%',
   },
+  bookCardHorizontal: {
+    width: 280,
+    marginRight: 16,
+    marginBottom: 0,
+  },
   bookContent: {
-    flexDirection: 'row',
-    padding: 16,
+    flexDirection: 'column',
     gap: 16,
   },
   bookContentWide: {
     flexDirection: 'column',
-    padding: 12,
   },
   coverImage: {
-    width: 120,
-    height: 180,
-    borderRadius: 12,
+    width: '100%',
+    height: 200,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   coverImageWide: {
     width: '100%',
     height: 200,
-    marginBottom: 12,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   bookInfo: {
     flex: 1,
     gap: 8,
+    padding: 16,
+    paddingTop: 0,
   },
   bookHeader: {
     flexDirection: 'row',
@@ -570,19 +603,25 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     flex: 1,
     lineHeight: 24,
+    letterSpacing: 0.3,
   },
   bookAuthor: {
     fontSize: 15,
     opacity: 0.8,
+    fontWeight: '500',
   },
   bookPublisher: {
     fontSize: 15,
     opacity: 0.8,
+    fontWeight: '500',
   },
   bookMeta: {
     flexDirection: 'column',
     gap: 10,
     marginTop: 8,
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    padding: 12,
+    borderRadius: 8,
   },
   metaItem: {
     flexDirection: 'row',
@@ -593,6 +632,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.7,
     flex: 1,
+    fontWeight: '500',
   },
   availabilityBadge: {
     alignSelf: 'flex-start',
@@ -600,11 +640,17 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     marginTop: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   availabilityText: {
     color: 'white',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   loadingText: {
     fontSize: 16,
@@ -653,6 +699,11 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   favoriteButton: {
-    padding: 4,
+    padding: 8,
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    borderRadius: 20,
+  },
+  horizontalScrollContent: {
+    paddingHorizontal: 20,
   },
 });

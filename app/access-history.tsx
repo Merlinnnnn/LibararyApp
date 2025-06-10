@@ -10,45 +10,136 @@ import { format } from 'date-fns';
 
 type TabType = 'digital' | 'physical';
 
-const getStatusBadge = (status: string) => {
+const getStatusBadge = (status: string, type: 'digital' | 'physical') => {
+  if (type === 'digital') {
+    switch (status) {
+      case 'APPROVED':
+        return {
+          color: '#4CAF50',  // Màu xanh lá
+          text: 'Đã duyệt',
+          icon: 'check-circle'
+        };
+      case 'PENDING':
+        return {
+          color: '#FFA000',  // Màu cam
+          text: 'Đang chờ duyệt',
+          icon: 'access-time'
+        };
+      case 'REJECTED':
+        return {
+          color: '#F44336',  // Màu đỏ
+          text: 'Đã từ chối',
+          icon: 'cancel'
+        };
+      default:
+        return {
+          color: '#757575',  // Màu xám
+          text: 'Không xác định',
+          icon: 'help'
+        };
+    }
+  } else {
+    switch (status) {
+      case 'BORROWED':
+        return {
+          color: '#FFA000',  // Màu cam
+          text: 'Đang mượn',
+          icon: 'access-time'
+        };
+      case 'RESERVED':
+        return {
+          color: '#1976D2',  // Màu xanh dương
+          text: 'Đã đặt trước',
+          icon: 'bookmark'
+        };
+      case 'RETURNED':
+        return {
+          color: '#4CAF50',  // Màu xanh lá
+          text: 'Đã trả',
+          icon: 'check-circle'
+        };
+      case 'CANCELLED_AUTO':
+        return {
+          color: '#BDBDBD',  // Màu xám
+          text: 'Đã hủy',
+          icon: 'cancel'
+        };
+      case 'UNDER_REVIEW':
+        return {
+          color: '#FFA000',  // Màu cam
+          text: 'Đang xem xét',
+          icon: 'access-time'
+        };
+      default:
+        return {
+          color: '#757575',  // Màu xám
+          text: 'Không xác định',
+          icon: 'help'
+        };
+    }
+  }
+};
+
+const getPaymentStatusBadge = (status: string) => {
   switch (status) {
-    case 'PENDING':
-    case 'RESERVED':
+    case 'NON_PAYMENT':
       return {
-        color: '#FFA000',
-        text: 'Đang chờ duyệt',
-        icon: 'clock-outline'
-      };
-    case 'APPROVED':
-    case 'BORROWED':
-      return {
-        color: '#4CAF50',
-        text: 'Đã duyệt',
-        icon: 'check-circle-outline'
-      };
-    case 'REJECTED':
-      return {
-        color: '#F44336',
-        text: 'Đã từ chối',
-        icon: 'close-circle-outline'
-      };
-    case 'RETURNED':
-      return {
-        color: '#2196F3',
-        text: 'Đã trả',
+        color: '#4CAF50',  // Màu xanh lá
+        text: 'Không có phạt',
         icon: 'check-circle'
       };
-    case 'OVERDUE':
+    case 'UNPAID':
       return {
-        color: '#F44336',
-        text: 'Quá hạn',
-        icon: 'alert-circle-outline'
+        color: '#F44336',  // Màu đỏ
+        text: 'Chưa thanh toán',
+        icon: 'cancel'
+      };
+    case 'CASH':
+      return {
+        color: '#4CAF50',  // Màu xanh lá
+        text: 'Đã trả tiền mặt',
+        icon: 'attach-money'
+      };
+    case 'VNPAY':
+      return {
+        color: '#4CAF50',  // Màu xanh lá
+        text: 'Đã trả qua VNPAY',
+        icon: 'credit-card'
       };
     default:
       return {
-        color: '#757575',
+        color: '#757575',  // Màu xám
         text: 'Không xác định',
-        icon: 'help-circle-outline'
+        icon: 'help'
+      };
+  }
+};
+
+const getReturnConditionBadge = (condition: string) => {
+  switch (condition) {
+    case 'NORMAL':
+      return {
+        color: '#4CAF50',  // Màu xanh lá
+        text: 'Bình thường',
+        icon: 'check-circle'
+      };
+    case 'DAMAGED':
+      return {
+        color: '#F44336',  // Màu đỏ
+        text: 'Lý do: Hư sách',
+        icon: 'warning'
+      };
+    case 'OVERDUE':
+      return {
+        color: '#F44336',  // Màu đỏ
+        text: 'Lý do: Quá hạn',
+        icon: 'warning'
+      };
+    default:
+      return {
+        color: '#757575',  // Màu xám
+        text: 'Không xác định',
+        icon: 'help'
       };
   }
 };
@@ -129,12 +220,32 @@ export default function AccessHistoryScreen() {
           }
         >
           {digitalHistory.map((request) => {
-            const status = getStatusBadge(request.status);
+            const status = getStatusBadge(request.status, 'digital');
             return (
               <TouchableOpacity 
                 key={request.id} 
-                style={[styles.requestCard, { backgroundColor: colorScheme === 'dark' ? '#333' : '#fff' }]}
-                onPress={() => router.push({ pathname: '/loan/[id]', params: { id: request.id } })}
+                style={[
+                  styles.requestCard, 
+                  { 
+                    backgroundColor: colorScheme === 'dark' ? '#333' : '#fff',
+                    opacity: (request.status === 'APPROVED' && request.licenseExpiry && new Date(request.licenseExpiry) > new Date()) ? 1 : 0.7
+                  }
+                ]}
+                onPress={() => {
+                  if (request.status === 'APPROVED' && request.licenseExpiry && new Date(request.licenseExpiry) > new Date()) {
+                    router.push({
+                      pathname: '/reader',
+                      params: {
+                        id: request.digitalId,
+                        requestId: request.id,
+                        requestTime: request.requestTime,
+                        decisionTime: request.decisionTime,
+                        licenseExpiry: request.licenseExpiry
+                      }
+                    });
+                  }
+                }}
+                disabled={request.status !== 'APPROVED' || !request.licenseExpiry || new Date(request.licenseExpiry) <= new Date()}
               >
                 <Image 
                   source={{ uri: request.coverImage }} 
@@ -147,7 +258,7 @@ export default function AccessHistoryScreen() {
                       {request.documentName}
                     </Text>
                     <View style={[styles.badge, { backgroundColor: status.color }]}>
-                      <MaterialIcons name={status.icon} size={16} color="white" style={styles.badgeIcon} />
+                      <MaterialIcons name={status.icon as any} size={16} color="white" style={styles.badgeIcon} />
                       <Text style={styles.badgeText}>{status.text}</Text>
                     </View>
                   </View>
@@ -232,12 +343,20 @@ export default function AccessHistoryScreen() {
         }
       >
         {physicalBooks.map((book) => {
-          const status = getStatusBadge(book.status);
+          const status = getStatusBadge(book.status, 'physical');
+          const paymentStatus = getPaymentStatusBadge(book.paymentStatus);
+          const returnCondition = book.returnCondition ? getReturnConditionBadge(book.returnCondition) : null;
+          const isOverdue = book.status === 'BORROWED' && book.dueDate && new Date(book.dueDate) < new Date();
+          const daysOverdue = isOverdue ? Math.ceil((new Date().getTime() - new Date(book.dueDate).getTime()) / (1000 * 60 * 60 * 24)) : 0;
+          
           return (
             <TouchableOpacity 
               key={book.transactionId} 
               style={[styles.requestCard, { backgroundColor: colorScheme === 'dark' ? '#333' : '#fff' }]}
-              onPress={() => router.push({ pathname: '/loan/[id]', params: { id: book.transactionId } })}
+              onPress={() => router.push({ 
+                pathname: '/loan/[id]', 
+                params: { id: book.transactionId } 
+              })}
             >
               <View style={styles.requestInfo}>
                 <View style={styles.requestHeader}>
@@ -245,10 +364,19 @@ export default function AccessHistoryScreen() {
                     {book.documentName}
                   </Text>
                   <View style={[styles.badge, { backgroundColor: status.color }]}>
-                    <MaterialIcons name={status.icon} size={16} color="white" style={styles.badgeIcon} />
+                    <MaterialIcons name={status.icon as any} size={16} color="white" style={styles.badgeIcon} />
                     <Text style={styles.badgeText}>{status.text}</Text>
                   </View>
                 </View>
+
+                {isOverdue && (
+                  <View style={[styles.overdueContainer, { backgroundColor: '#F44336' }]}>
+                    <MaterialIcons name="warning" size={16} color="white" />
+                    <Text style={styles.overdueText}>
+                      Quá hạn {daysOverdue} ngày
+                    </Text>
+                  </View>
+                )}
 
                 <View style={styles.bookMeta}>
                   <View style={styles.metaItem}>
@@ -301,30 +429,28 @@ export default function AccessHistoryScreen() {
 
                 <View style={styles.paymentContainer}>
                   <MaterialIcons 
-                    name={
-                      book.paymentStatus === 'PAID' ? 'check-circle' :
-                      book.paymentStatus === 'PARTIALLY_PAID' ? 'pending' : 'error'
-                    } 
+                    name={paymentStatus.icon as any} 
                     size={16} 
-                    color={
-                      book.paymentStatus === 'PAID' ? '#4CAF50' :
-                      book.paymentStatus === 'PARTIALLY_PAID' ? '#FFA000' : '#F44336'
-                    } 
+                    color={paymentStatus.color} 
                   />
                   <Text style={[
                     styles.paymentStatus,
                     { 
-                      color: book.paymentStatus === 'PAID' ? '#4CAF50' :
-                             book.paymentStatus === 'PARTIALLY_PAID' ? '#FFA000' : '#F44336'
+                      color: paymentStatus.color
                     }
                   ]}>
-                    {
-                      book.paymentStatus === 'PAID' ? 'Đã thanh toán' :
-                      book.paymentStatus === 'PARTIALLY_PAID' ? 'Thanh toán một phần' :
-                      'Chưa thanh toán'
-                    }
+                    {paymentStatus.text}
                   </Text>
                 </View>
+
+                {returnCondition && (
+                  <View style={[styles.returnConditionContainer, { backgroundColor: returnCondition.color + '20' }]}>
+                    <MaterialIcons name={returnCondition.icon as any} size={16} color={returnCondition.color} />
+                    <Text style={[styles.returnConditionText, { color: returnCondition.color }]}>
+                      {returnCondition.text}
+                    </Text>
+                  </View>
+                )}
 
                 {book.description && (
                   <View style={styles.descriptionContainer}>
@@ -564,6 +690,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  returnConditionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  returnConditionText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -626,5 +766,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.7,
     lineHeight: 20,
+  },
+  overdueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  overdueText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
